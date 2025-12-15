@@ -390,23 +390,28 @@ canvas{ width:100%; height:auto; display:block; }
   }
 
   function drawClef(clef){
-    // Use robust fallback fonts for music symbols
-    ctx.fillStyle = css("--staff");
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = css("--staff");
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
 
-    // Large + positioned musically (baseline tuned per clef)
-    ctx.font = "160px 'Noto Music','Bravura','Segoe UI Symbol',serif";
-    const x = L.left - 38;
+  ctx.font = "140px 'Noto Music','Bravura','Segoe UI Symbol',serif";
 
-    // baseline y tuned so clef sits “on” the staff
-    // Treble (𝄞) curls around G line; Bass (𝄢) dots around F line
-    const y = (clef === "treble")
-      ? (L.staffTop + 4*L.lineGap + 30)
-      : (L.staffTop + 4*L.lineGap + 8);
+  const x = L.clefX;
 
-    ctx.fillText(clef === "treble" ? "𝄞" : "𝄢", x, y);
+  if (clef === "treble") {
+    // 🎼 מפתח סול
+    // קו סול = הקו השני מלמטה = index 3
+    const gLineY = L.staffTop + 3 * L.lineGap;
+
+    ctx.fillText("𝄞", x, gLineY + 6);
+  } else {
+    // 🎼 מפתח פה
+    // קו פה = הקו השני מלמעלה = index 1
+    const fLineY = L.staffTop + 1 * L.lineGap;
+
+    ctx.fillText("𝄢", x, fLineY);
   }
+}
 
   function drawTargetNote(clef, noteObj){
     // reference notes for staff mapping (bottom line):
