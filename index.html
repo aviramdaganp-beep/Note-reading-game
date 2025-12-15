@@ -75,16 +75,22 @@ canvas{ width:100%; height:auto; display:block; }
   letter-spacing:0.2px;
 }
 
-.good{ color:var(--good); animation:pulse 0.45s ease; }
+/* דיליי קל לאנימציית נכון */
+.good{
+  color:var(--good);
+  animation:pulse 0.52s ease;
+  animation-delay:140ms;
+  animation-fill-mode:both;
+}
 .bad{ color:var(--bad); }
 
 @keyframes pulse{
   0%{ transform:scale(1); }
-  40%{ transform:scale(1.18); }
+  40%{ transform:scale(1.16); }
   100%{ transform:scale(1); }
 }
 
-.shake{ animation: shake 0.28s ease-in-out; }
+.shake{ animation: shake 0.32s ease-in-out; }
 @keyframes shake {
   0% { transform: translateX(0); }
   15% { transform: translateX(-10px); }
@@ -106,7 +112,7 @@ canvas{ width:100%; height:auto; display:block; }
 </div>
 
 <div id="stage">
-  <canvas id="cv" width="900" height="460"></canvas>
+  <canvas id="cv" width="900" height="520"></canvas>
 </div>
 
 <div id="noteBox"></div>
@@ -125,28 +131,42 @@ canvas{ width:100%; height:auto; display:block; }
 
   const css = (v)=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
-  // ---------- Layout (short staff) ----------
-  const L = {
-    staffTop: 170,
-    lineGap: 18,
+  // ---------- SCALE + CENTER ----------
+  const SCALE = 1.5;
 
-    staffLeft: 120,
-    staffRight: 540, // קצר משמעותית מהגרסה הארוכה
+  // קיצרנו עוד בחצי (לעומת הקצרה שהייתה), ואז הגדלנו פרופורציונלית ×1.5
+  // (בפועל: קצר יותר מקודם + גדול יותר מבחינת גובה/סמלים)
+  const staffWidth = 210 * SCALE;     // קצר מאוד, ממורכז
+  const lineGap = 18 * SCALE;         // חמשה גדולה ב-50%
 
-    // 🔒 נעילה לפי התמונות שלך (נפרד לכל מפתח):
-    clefX: 152,
-    clefTrebleY: -23,
-    clefBassY: 12,
-    clefTrebleSize: 174,
-    clefBassSize: 110,
+  // staffTop ממורכז אנכית בקנבס
+  function staffTop(){
+    return (cv.height - 4 * lineGap) / 2;
+  }
 
-    // מיקומים לגרפיקה
-    noteBaseX: 390,   // מרכז התו בתוך החמשה הקצרה
-    accXOffset: 34
+  function staffBottomLineY(){ return staffTop() + 4 * lineGap; }
+  function staffMiddleY(){ return staffTop() + 2 * lineGap; }
+
+  // staffLeft/Right ממורכזים אופקית
+  function staffLeft(){ return (cv.width - staffWidth) / 2; }
+  function staffRight(){ return staffLeft() + staffWidth; }
+
+  // ---------- Clef lock (מהמספרים שלך, מותאם סקייל) ----------
+  // הערכים ששלחת:
+  // X=152, TrebleY=-23, BassY=12, TrebleSize=174, BassSize=110
+  // עכשיו: כל המערכת ממורכזת, אז X נהיה "offset בתוך החמשה".
+  const CLEF = {
+    xOffset: 32 * SCALE,              // (152-120)=32 → ×1.5
+    trebleY: -23 * SCALE,             // ×1.5
+    bassY: 12 * SCALE,                // ×1.5
+    trebleSize: 174 * SCALE,          // ×1.5
+    bassSize: 110 * SCALE             // ×1.5
   };
 
-  const staffBottomLineY = () => L.staffTop + 4 * L.lineGap;
-  const staffMiddleY = () => L.staffTop + 2 * L.lineGap;
+  // note placement inside short staff (proportional)
+  function clefX(){ return staffLeft() + CLEF.xOffset; }
+  function noteX(){ return staffLeft() + staffWidth * 0.66; } // בתוך החמשה, אחרי המפתח
+  const ACC_X_OFFSET = 34 * SCALE;
 
   // ---------- Pitch (YIN) ----------
   const FFT = 2048;
@@ -193,7 +213,6 @@ canvas{ width:100%; height:auto; display:block; }
       const hit = opts.find(o => o.a === preferredAcc);
       if (hit) chosen = hit;
     } else if (opts.length === 2) {
-      // עקבי: דיאז כברירת מחדל
       chosen = opts.find(o => o.a === +1) || opts[0];
     }
 
@@ -223,16 +242,16 @@ canvas{ width:100%; height:auto; display:block; }
     const pc = ((midi%12)+12)%12;
     const opts = PC_TO_SPELLINGS[pc];
     const chosen = opts[Math.floor(Math.random()*opts.length)];
-    return spellForMidi(midi, chosen.a); // נועל איות (♯/♭) לציור
+    return spellForMidi(midi, chosen.a);
   }
-
   function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 
-  // ---------- Slide animation (old out, new in) ----------
+  // ---------- Slide animation (SLOW + easing) ----------
   let sliding = false;
   let slideStart = 0;
-  const slideDuration = 460;   // ms
-  const slideDist = 240;       // px in canvas coords
+  const slideDuration = 1400;                 // הרבה יותר איטי
+  let slideDist = 0;                          // יחושב דינמית לפי רוחב החמשה
+
   let oldTarget = null;
   let newTarget = null;
 
@@ -246,6 +265,7 @@ canvas{ width:100%; height:auto; display:block; }
     slideStart = performance.now();
     oldTarget = target;
     newTarget = randomTarget();
+    slideDist = staffWidth + 220;            // כדי שהכול “יזוז החוצה” גם עם חמשה קצרה
   }
 
   // ---------- Audio start/stop ----------
@@ -326,7 +346,7 @@ canvas{ width:100%; height:auto; display:block; }
   }
 
   function check(midi, cents, prob){
-    if (sliding) return; // בזמן סלייד לא סופרים פגיעות
+    if (sliding) return;
 
     const ok = target && midi === target.midi && Math.abs(cents) <= HIT_CENTS_MAX && prob >= HIT_PROB_GATE;
 
@@ -338,7 +358,6 @@ canvas{ width:100%; height:auto; display:block; }
 
       if (stableCount >= REQUIRED_STABLE_FRAMES) onCorrect();
     } else {
-      // רעד רק כשיש צליל יציב אבל לא נכון
       if (prob >= HIT_PROB_GATE && Math.abs(cents) <= 60) {
         if (lastMidiSeen !== midi) onWrong();
         lastMidiSeen = midi;
@@ -348,9 +367,12 @@ canvas{ width:100%; height:auto; display:block; }
   }
 
   function onWrong(){
-    stage.classList.remove("shake");
-    void stage.offsetWidth;
-    stage.classList.add("shake");
+    // דיליי קל לפני רעד
+    setTimeout(() => {
+      stage.classList.remove("shake");
+      void stage.offsetWidth;
+      stage.classList.add("shake");
+    }, 140);
   }
 
   function onCorrect(){
@@ -360,19 +382,17 @@ canvas{ width:100%; height:auto; display:block; }
     stableCount = 0;
     lastMidiSeen = null;
 
-    // מתחילים סלייד: הישן יוצא, החדש נכנס
-    startSlideToNext();
+    // דיליי קל לפני סלייד (כדי שה"נכון" יורגש)
+    setTimeout(() => {
+      startSlideToNext();
+    }, 180);
   }
 
   // ---------- Drawing ----------
-  function chooseClef(midi){
-    return midi < 60 ? "bass" : "treble";
-  }
+  function chooseClef(midi){ return midi < 60 ? "bass" : "treble"; }
 
   function draw(){
     ctx.clearRect(0,0,cv.width,cv.height);
-
-    // background is handled by CSS, but canvas needs clear only
 
     if (!sliding) {
       drawFrame(target, 0);
@@ -383,9 +403,9 @@ canvas{ width:100%; height:auto; display:block; }
     const p = Math.max(0, Math.min(1, t));
     const e = easeInOutCubic(p);
 
-    // old moves left out, new moves in from right
+    // old goes left, new comes from right
     const oldOffset = -slideDist * e;
-    const newOffset = slideDist * (1 - e);
+    const newOffset =  slideDist * (1 - e);
 
     drawFrame(oldTarget, oldOffset);
     drawFrame(newTarget, newOffset);
@@ -403,120 +423,123 @@ canvas{ width:100%; height:auto; display:block; }
   function drawFrame(noteObj, xOffset){
     if (!noteObj) return;
 
-    // staff
     drawStaffLines(xOffset);
 
-    // clef
     const clef = chooseClef(noteObj.midi);
     drawClef(clef, xOffset);
-
-    // note
     drawTargetNote(clef, noteObj, xOffset);
   }
 
   function drawStaffLines(xOffset){
     ctx.strokeStyle = css("--staff");
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
 
+    const top = staffTop();
+    const left = staffLeft() + xOffset;
+    const right = staffRight() + xOffset;
+
     for (let i=0; i<5; i++){
-      const y = L.staffTop + i*L.lineGap;
+      const y = top + i*lineGap;
       ctx.beginPath();
-      ctx.moveTo(L.staffLeft + xOffset, y);
-      ctx.lineTo(L.staffRight + xOffset, y);
+      ctx.moveTo(left, y);
+      ctx.lineTo(right, y);
       ctx.stroke();
     }
   }
 
   function drawClef(clef, xOffset){
-    const x = L.clefX + xOffset;
+    const x = clefX() + xOffset;
+    const top = staffTop();
 
     ctx.fillStyle = css("--staff");
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
     if (clef === "treble") {
-      // קו סול = הקו השני מלמטה = index 3
-      const gLineY = L.staffTop + 3 * L.lineGap;
-      ctx.font = `${L.clefTrebleSize}px 'Noto Music','Bravura','Segoe UI Symbol',serif`;
-      ctx.fillText("𝄞", x, gLineY + L.clefTrebleY);
+      // G line = 2nd from bottom => index 3
+      const gLineY = top + 3 * lineGap;
+      ctx.font = `${CLEF.trebleSize}px 'Noto Music','Bravura','Segoe UI Symbol',serif`;
+      ctx.fillText("𝄞", x, gLineY + CLEF.trebleY);
     } else {
-      // קו פה = הקו השני מלמעלה = index 1
-      const fLineY = L.staffTop + 1 * L.lineGap;
-      ctx.font = `${L.clefBassSize}px 'Noto Music','Bravura','Segoe UI Symbol',serif`;
-      ctx.fillText("𝄢", x, fLineY + L.clefBassY);
+      // F line = 2nd from top => index 1
+      const fLineY = top + 1 * lineGap;
+      ctx.font = `${CLEF.bassSize}px 'Noto Music','Bravura','Segoe UI Symbol',serif`;
+      ctx.fillText("𝄢", x, fLineY + CLEF.bassY);
     }
   }
 
   function drawTargetNote(clef, noteObj, xOffset){
-    // reference bottom line mapping:
-    // Treble bottom line = E4 (L=2,o=4)
-    // Bass bottom line   = G2 (L=4,o=2)
-    const ref = (clef === "treble") ? {L:2,o:4} : {L:4,o:2};
-
+    const ref = (clef === "treble") ? {L:2,o:4} : {L:4,o:2}; // E4 / G2 bottom lines
     const refD = diatonicNumber(ref.L, ref.o);
     const d = diatonicNumber(noteObj.letterIndex, noteObj.octave);
     const stepsFromRef = d - refD;
 
     const y0 = staffBottomLineY();
-    const y = y0 - stepsFromRef * (L.lineGap/2);
-    const x = (L.noteBaseX + xOffset);
+    const y = y0 - stepsFromRef * (lineGap/2);
+    const x = noteX() + xOffset;
 
-    drawLedgerLines(x, y, xOffset);
+    drawLedgerLines(x, y);
 
-    // accidental
+    // accidental (bigger)
     if (noteObj.accidental !== 0) {
       ctx.fillStyle = css("--staff");
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `58px 'Noto Music','Bravura','Segoe UI Symbol',serif`;
-      ctx.fillText(accSymbol(noteObj.accidental), x - L.accXOffset, y);
+      ctx.font = `${58*SCALE}px 'Noto Music','Bravura','Segoe UI Symbol',serif`;
+      ctx.fillText(accSymbol(noteObj.accidental), x - ACC_X_OFFSET, y);
     }
 
-    // note head (smaller)
+    // note head (scaled up, but "טיפה קטן" ביחס לגרסה הקודמת שלך)
+    const rx = 13 * SCALE;
+    const ry = 9.5 * SCALE;
+
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(-0.25);
     ctx.fillStyle = css("--staff");
     ctx.beginPath();
-    ctx.ellipse(0, 0, 13, 9.5, 0, 0, Math.PI*2);
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI*2);
     ctx.fill();
     ctx.restore();
 
-    // stem (shorter)
+    // stem (scaled)
     const stemUp = y > staffMiddleY();
-    const stemLength = 56;
+    const stemLength = 56 * SCALE;
+
     ctx.strokeStyle = css("--staff");
     ctx.lineWidth = 3;
     ctx.beginPath();
     if (stemUp) {
-      ctx.moveTo(x + 12, y);
-      ctx.lineTo(x + 12, y - stemLength);
+      ctx.moveTo(x + (12*SCALE), y);
+      ctx.lineTo(x + (12*SCALE), y - stemLength);
     } else {
-      ctx.moveTo(x - 12, y);
-      ctx.lineTo(x - 12, y + stemLength);
+      ctx.moveTo(x - (12*SCALE), y);
+      ctx.lineTo(x - (12*SCALE), y + stemLength);
     }
     ctx.stroke();
   }
 
-  function drawLedgerLines(x, y, xOffset){
-    const topLine = L.staffTop;
+  function drawLedgerLines(x, y){
+    const topLine = staffTop();
     const bottomLine = staffBottomLineY();
-    ctx.strokeStyle = css("--staff");
-    ctx.lineWidth = 2;
 
-    const left = x - 26;
-    const right = x + 26;
+    ctx.strokeStyle = css("--staff");
+    ctx.lineWidth = 2.2;
+
+    const w = 26 * SCALE;
+    const left = x - w;
+    const right = x + w;
 
     // Above
-    for (let ly = topLine - L.lineGap; y < ly + 1; ly -= L.lineGap) {
+    for (let ly = topLine - lineGap; y < ly + 1; ly -= lineGap) {
       ctx.beginPath();
       ctx.moveTo(left, ly);
       ctx.lineTo(right, ly);
       ctx.stroke();
     }
     // Below
-    for (let ly = bottomLine + L.lineGap; y > ly - 1; ly += L.lineGap) {
+    for (let ly = bottomLine + lineGap; y > ly - 1; ly += lineGap) {
       ctx.beginPath();
       ctx.moveTo(left, ly);
       ctx.lineTo(right, ly);
@@ -587,7 +610,6 @@ canvas{ width:100%; height:auto; display:block; }
   // init
   target = randomTarget();
   draw();
-
   window.addEventListener("pagehide", stop);
 })();
 </script>
