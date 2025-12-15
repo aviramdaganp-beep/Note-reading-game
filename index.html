@@ -348,7 +348,7 @@ canvas{ width:100%; height:auto; display:block; }
   const YIN_THRESHOLD = 0.10;
 
   // stability / anti-speech
-  const STABLE_MIN_MS = 300;
+  const STABLE_MIN_MS = 140;
   const STABLE_PROB_MIN = 0.78;
   const JITTER_CENTS_MAX = 18;
 
@@ -358,7 +358,7 @@ canvas{ width:100%; height:auto; display:block; }
   const REQUIRED_STABLE_FRAMES = 5;
 
   // wrong grace (punish only after holding WRONG state)
-  const WRONG_GRACE_MS = 600;
+  const WRONG_GRACE_MS = 150;
 
   // window for stabilization
   const pitchWindow = []; // {t,f,p}
@@ -780,10 +780,10 @@ canvas{ width:100%; height:auto; display:block; }
 
     // טעות נספרת לפי "מצב שגוי יציב", בלי תלות ב-MIDI קבוע
     const wrongCandidate =
-      target &&
-      !samePC &&
-      prob >= STABLE_PROB_MIN &&
-      Math.abs(cents) <= 160;
+  target &&
+  !samePC &&
+  prob >= 0.70 &&          // פחות קשוח מה-STABLE_PROB_MIN כדי לא לפספס טעויות
+  Math.abs(cents) <= 220;  // נותן מרווח כשהפיץ' קצת רועד
 
     const now = performance.now();
 
