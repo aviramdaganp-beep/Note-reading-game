@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="he">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Pitch Game (C2–C6) with Sharps/Flats</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 0; padding: 18px; }
+    button { width: 100%; padding: 16px; font-size: 20px; border: 0; border-radius: 14px; font-weight: 800; }
+    .rowBtns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .card { margin-top: 14px; padding: 16px; border: 1px solid #e6e6e6; border-radius: 14px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .muted { color: #666; }
+    .hud { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .big { font-size: 28px; font-weight: 900; }
+    #stage { margin-top: 12px; border-radius: 14px; overflow: hidden; border: 1px solid #e6e6e6; background: #fff; }
+    canvas { display: block; width: 100%; height: auto; }
+    .hint { margin-top: 10px; font-size: 14px; color: #666; }
+
+    .shake { animation: shake 0.28s ease-in-out; }
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      15% { transform: translateX(-10px); }
+      30% { transform: translateX(10px); }
+      45% { transform: translateX(-8px); }
+      60% { transform: translateX(8px); }
+      75% { transform: translateX(-5px); }
+      100% { transform: translateX(0); }
+    }
+
+    .flashGood { box-shadow: 0 0 0 3px rgba(0, 160, 0, 0.25) inset; }
+    .flashBad  { box-shadow: 0 0 0 3px rgba(180, 0, 0, 0.22) inset; }
+  </style>
+</head>
+<body>
+  <h2 style="margin:0 0 6px 0;">משחק זיהוי תווים (C2–C6) + ♯/♭</h2>
+  <div class="muted">חייב HTTPS. עדיף Safari באייפון. תו אחד נקי בכל פעם.</div>
+
+  <button id="btnStart">🎤 התחל</button>
+
+  <div class="rowBtns">
+    <button id="btnNew" style="background:#f3f3f3;">🎲 תו חדש</button>
+    <button id="btnReset" style="background:#f3f3f3;">🔁 איפוס ניקוד</button>
+  </div>
+
+  <div id="stage">
+    <canvas id="cv" width="900" height="420"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="hud">
+      <div>
+        <div class="muted">התו המבוקש</div>
+        <div class="big" id="targetName">—</div>
+      </div>
+      <div>
+        <div class="muted">ניקוד</div>
+        <div class="big"><span id="score">0</span></div>
+      </div>
+      <div>
+        <div class="muted">Hz</div>
+        <div class="mono" id="hz">—</div>
+      </div>
+      <div>
+        <div class="muted">דיוק</div>
+        <div class="mono" id="cents">—</div>
+      </div>
+      <div>
+        <div class="muted">Clarity</div>
+        <div class="mono" id="clarity">—</div>
+      </div>
+      <div>
+        <div class="muted">RMS</div>
+        <div class="mono" id="rms">—</div>
+      </div>
+    </div>
+    <div class="hint">
+      טיפ: שריקה/“אוּ” יציב עובד הכי טוב. בפסנתר: תו בודד בלי דוושה.
+      אם מוצג D♭4 ואתה מנגן C♯4 — זה אותו צליל וזה ייחשב נכון.
+    </div>
+    <div class="muted">Status: <span class="mono" id="status">לא פעיל</span></div>
+  </div>
+
+  <audio playsinline></audio>
+
+<script>
+(() => {
+  // ---------- UI ----------
+  const btnStart = document.getElementById("btnStart");
+  const btnNew = document.getElementById("btnNew");
+  const btnReset = document.getElementById("btnReset");
+
+  const targetNameEl = document.getElementById("targetName");
+  const scoreEl = document.getElementById("score");
+  const hzEl = document.getElementById("hz");
+  const centsEl = document.getElementById("cents");
+  const clarityEl = document.getElementById("clarity");
+  const rmsEl = document.getElementById("rms");
+  const statusEl = document.getElementById("status");
+
+  const stage = document.getElementById("stage");
+  const cv = document.getElementById("cv");
+  const ctx = cv.getContext("2d");
+
+  // ---------- Pitch (YIN) ----------
+  const FFT_SIZE = 2048;
+  const buf = new Float32Array(FFT_SIZE);
+
+  const RMS_GATE = 0.005;
+  const YIN_THRESHOLD = 0.12;
+  const YIN_PROB_GATE = 0.60;     // show pitch only above this
+  const HIT_PROB_GATE = 0.70;     // stricter for "correct"
+  const HIT_CENTS_MAX = 35;       // must be within +-35 cents
+  const REQUIRED_STABLE_FRAMES = 6;
+
+  let audioCtx = null, analyser = null, stream = null, rafId = null, running = false;
+
+  // ---------- Game / Notes ----------
+  // Letters: C D E F G A B
+  const LETTERS = ["C","D","E","F","G","A","B"];
+  const MIDI_MIN = 36; // C2
+  const MIDI_MAX = 84; // C6
+
+  // Spellings limited to common ones (no E#, B#, Cb, Fb)
+  // Each entry: { letterIndex (C=0..B=6), accidental: -1|0|+1, textSymbol }
+  const PC_TO_SPELLINGS = {
+    0:  [{L:0, a:0}],                      // C
+    1:  [{L:0, a:+1},{L:1, a:-1}],         // C# / Db
+    2:  [{L:1, a:0}],                      // D
+    3:  [{L:1, a:+1},{L:2, a:-1}],         // D# / Eb
+    4:  [{L:2, a:0}],                      // E
+    5:  [{L:3, a:0}],                      // F
+    6:  [{L:3, a:+1},{L:4, a:-1}],         // F# / Gb
+    7:  [{L:4, a:0}],                      // G
+    8:  [{L:4, a:+1},{L:5, a:-1}],         // G# / Ab
+    9:  [{L:5, a:0}],                      // A
+    10: [{L:5, a:+1},{L:6, a:-1}],         // A# / Bb
+    11: [{L:6, a:0}]                       // B
+  };
+
+  function accSymbol(a){
+    return a === +1 ? "♯" : a === -1 ? "♭" : "";
+  }
+
+  // Target "note object"
+  // { midi, letterIndex, octave, accidental, display }
+  let target = null;
+
+  let score = 0;
+  let stableHitCount = 0;
+  let lastSeenMidi = null;
+
+  btnNew.addEventListener("click", () => {
+    nextTarget();
+    flash(stage, "flashGood", 180);
+  });
+
+  btnReset.addEventListener("click", () => {
+    score = 0;
+    scoreEl.textContent = score;
+    stableHitCount = 0;
+    flash(stage, "flashGood", 180);
+  });
+
+  btnStart.addEventListener("click", async () => {
+    if (running) { stopAudio(); return; }
+
+    try {
+      if (!window.isSecureContext) {
+        statusEl.textContent = "צריך HTTPS (לא עובד מ-file://).";
+        return;
+      }
+
+      statusEl.textContent = "מבקש גישה למיקרופון…";
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+
+      const src = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = FFT_SIZE;
+      analyser.smoothingTimeConstant = 0.15;
+      src.connect(analyser);
+
+      running = true;
+      btnStart.textContent = "⏹ עצור";
+      statusEl.textContent = "מאזין…";
+
+      if (!target) nextTarget();
+      loop();
+    } catch (e) {
+      statusEl.textContent = "שגיאה: " + (e?.name ? `${e.name}: ` : "") + (e?.message || e);
+    }
+  });
+
+  function stopAudio() {
+    running = false;
+    btnStart.textContent = "🎤 התחל";
+    statusEl.textContent = "לא פעיל";
+
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null;
+
+    if (audioCtx) audioCtx.close();
+    audioCtx = null;
+
+    analyser = null;
+    stableHitCount = 0;
+    lastSeenMidi = null;
+  }
+
+  function loop() {
+    analyser.getFloatTimeDomainData(buf);
+
+    const res = detectPitchYIN(buf, audioCtx.sampleRate);
+    const freq = res.freq;
+    const prob = res.prob;
+    const rms = res.rms;
+
+    rmsEl.textContent = rms.toFixed(4);
+    clarityEl.textContent = prob.toFixed(2);
+
+    if (freq && rms >= RMS_GATE && prob >= YIN_PROB_GATE) {
+      const midi = freqToMidi(freq);
+      const ref = midiToFreq(midi);
+      const cents = centsOff(freq, ref);
+
+      hzEl.textContent = freq.toFixed(2);
+      centsEl.textContent = (cents >= 0 ? "+" : "") + cents.toFixed(1) + " cents";
+
+      const centsOk = Math.abs(cents) <= HIT_CENTS_MAX;
+      const probOk = prob >= HIT_PROB_GATE;
+      const midiOk = (target && midi === target.midi);
+
+      if (probOk && centsOk && midiOk) {
+        if (lastSeenMidi === midi) stableHitCount++;
+        else stableHitCount = 1;
+
+        lastSeenMidi = midi;
+
+        if (stableHitCount >= REQUIRED_STABLE_FRAMES) onCorrect();
+      } else {
+        if (probOk && rms >= 0.01) {
+          if (target && midi !== target.midi && lastSeenMidi !== midi) onWrong();
+          lastSeenMidi = midi;
+          stableHitCount = 0;
+        } else {
+          stableHitCount = 0;
+          lastSeenMidi = null;
+        }
+      }
+    } else {
+      hzEl.textContent = "—";
+      centsEl.textContent = "—";
+      stableHitCount = 0;
+      lastSeenMidi = null;
+    }
+
+    drawScene();
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function onCorrect() {
+    score++;
+    scoreEl.textContent = score;
+    flash(stage, "flashGood", 220);
+
+    stableHitCount = 0;
+    lastSeenMidi = null;
+    nextTarget();
+  }
+
+  let lastWrongAt = 0;
+  function onWrong() {
+    const now = performance.now();
+    if (now - lastWrongAt < 350) return;
+    lastWrongAt = now;
+
+    stage.classList.remove("shake");
+    void stage.offsetWidth;
+    stage.classList.add("shake");
+    flash(stage, "flashBad", 180);
+  }
+
+  function flash(el, cls, ms) {
+    el.classList.add(cls);
+    setTimeout(() => el.classList.remove(cls), ms);
+  }
+
+  function nextTarget() {
+    const midi = randInt(MIDI_MIN, MIDI_MAX);
+    const pc = ((midi % 12) + 12) % 12;
+    const octave = Math.floor(midi / 12) - 1;
+
+    const spellings = PC_TO_SPELLINGS[pc];
+    const chosen = spellings[Math.floor(Math.random() * spellings.length)];
+
+    target = {
+      midi,
+      letterIndex: chosen.L,
+      octave,
+      accidental: chosen.a,
+      display: `${LETTERS[chosen.L]}${accSymbol(chosen.a)}${octave}`
+    };
+
+    targetNameEl.textContent = target.display;
+    drawScene();
+  }
+
+  function randInt(a,b){ return Math.floor(Math.random() * (b - a + 1)) + a; }
+
+  // ---------- Drawing staff ----------
+  function chooseClef(midi) {
+    return midi < 60 ? "bass" : "treble"; // split at middle C (C4=60)
+  }
+
+  function drawScene() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+
+    const clef = chooseClef(target ? target.midi : 60);
+    drawStaff(ctx, clef);
+
+    if (target) drawNote(ctx, clef, target);
+  }
+
+  function drawStaff(ctx, clef) {
+    const w = cv.width;
+    const marginX = 70;
+    const staffTop = 120;
+    const lineGap = 18;
+    const staffHeight = 4 * lineGap;
+
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, w, cv.height);
+
+    ctx.strokeStyle = "#111";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 5; i++) {
+      const y = staffTop + i * lineGap;
+      ctx.beginPath();
+      ctx.moveTo(marginX, y);
+      ctx.lineTo(w - 30, y);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "#111";
+    ctx.font = "72px serif";
+    const clefChar = (clef === "treble") ? "𝄞" : "𝄢";
+    ctx.fillText(clefChar, marginX - 45, staffTop + staffHeight + 35);
+
+    ctx.font = "22px system-ui, Arial";
+    ctx.fillText(clef === "treble" ? "מפתח סול" : "מפתח פה", marginX, 60);
+
+    ctx.font = "16px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = "#333";
+    ctx.fillText("טווח: C2–C6", w - 180, 60);
+  }
+
+  // Diatonic position: C=0..B=6 per octave
+  function diatonicNumber(letterIndex, octave) {
+    return octave * 7 + letterIndex;
+  }
+
+  function drawNote(ctx, clef, noteObj) {
+    const marginX = 70;
+    const staffTop = 120;
+    const lineGap = 18;
+
+    const x = marginX + 360;
+
+    // Reference notes for bottom line:
+    // Treble bottom line: E4 (letter E=2, octave 4)
+    // Bass bottom line:   G2 (letter G=4, octave 2)
+    const ref = (clef === "treble")
+      ? { L: 2, o: 4 }   // E4
+      : { L: 4, o: 2 };  // G2
+
+    const refD = diatonicNumber(ref.L, ref.o);
+    const d = diatonicNumber(noteObj.letterIndex, noteObj.octave);
+    const stepsFromRef = d - refD;
+
+    const bottomLineY = staffTop + 4 * lineGap;
+    const y = bottomLineY - stepsFromRef * (lineGap / 2);
+
+    drawLedgerLines(ctx, x, y, staffTop, lineGap);
+
+    // accidental
+    if (noteObj.accidental !== 0) {
+      ctx.fillStyle = "#111";
+      ctx.font = "44px serif";
+      ctx.fillText(accSymbol(noteObj.accidental), x - 52, y + 16);
+    }
+
+    // note head
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-0.25);
+    ctx.fillStyle = "#111";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // stem
+    const staffMiddleY = staffTop + 2 * lineGap;
+    const stemUp = y > staffMiddleY;
+
+    ctx.strokeStyle = "#111";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    if (stemUp) {
+      ctx.moveTo(x + 14, y);
+      ctx.lineTo(x + 14, y - 70);
+    } else {
+      ctx.moveTo(x - 14, y);
+      ctx.lineTo(x - 14, y + 70);
+    }
+    ctx.stroke();
+
+    // small label
+    ctx.fillStyle = "#111";
+    ctx.font = "22px ui-monospace, Menlo, monospace";
+    ctx.fillText(noteObj.display, x + 70, y + 8);
+  }
+
+  function drawLedgerLines(ctx, x, y, staffTop, lineGap) {
+    const topLineY = staffTop;
+    const bottomLineY = staffTop + 4 * lineGap;
+
+    ctx.strokeStyle = "#111";
+    ctx.lineWidth = 2;
+
+    const left = x - 28;
+    const right = x + 28;
+
+    for (let ly = topLineY - lineGap; y < ly + 1; ly -= lineGap) {
+      ctx.beginPath();
+      ctx.moveTo(left, ly);
+      ctx.lineTo(right, ly);
+      ctx.stroke();
+    }
+
+    for (let ly = bottomLineY + lineGap; y > ly - 1; ly += lineGap) {
+      ctx.beginPath();
+      ctx.moveTo(left, ly);
+      ctx.lineTo(right, ly);
+      ctx.stroke();
+    }
+  }
+
+  // ---------- YIN ----------
+  function detectPitchYIN(signal, sampleRate) {
+    let mean = 0;
+    for (let i = 0; i < signal.length; i++) mean += signal[i];
+    mean /= signal.length;
+
+    const x = new Float32Array(signal.length);
+    let rms = 0;
+    for (let i = 0; i < signal.length; i++) {
+      const v = signal[i] - mean;
+      x[i] = v;
+      rms += v * v;
+    }
+    rms = Math.sqrt(rms / signal.length);
+    if (rms < RMS_GATE) return { freq: null, prob: 0, rms };
+
+    const n = x.length;
+    const maxTau = Math.floor(n / 2);
+
+    const d = new Float32Array(maxTau);
+    for (let tau = 1; tau < maxTau; tau++) {
+      let sum = 0;
+      for (let i = 0; i < maxTau; i++) {
+        const delta = x[i] - x[i + tau];
+        sum += delta * delta;
+      }
+      d[tau] = sum;
+    }
+
+    const cmndf = new Float32Array(maxTau);
+    cmndf[0] = 1;
+    let runningSum = 0;
+    for (let tau = 1; tau < maxTau; tau++) {
+      runningSum += d[tau];
+      cmndf[tau] = d[tau] * tau / (runningSum || 1e-12);
+    }
+
+    let tauEstimate = -1;
+    for (let tau = 2; tau < maxTau; tau++) {
+      if (cmndf[tau] < YIN_THRESHOLD) {
+        while (tau + 1 < maxTau && cmndf[tau + 1] < cmndf[tau]) tau++;
+        tauEstimate = tau;
+        break;
+      }
+    }
+    if (tauEstimate === -1) return { freq: null, prob: 0, rms };
+
+    const betterTau = parabolicTau(cmndf, tauEstimate);
+    const freq = sampleRate / betterTau;
+
+    const prob = clamp01(1 - cmndf[tauEstimate]);
+    if (freq < 50 || freq > 2000) return { freq: null, prob: 0, rms };
+
+    return { freq, prob, rms };
+  }
+
+  function parabolicTau(arr, tau) {
+    const x0 = tau > 1 ? tau - 1 : tau;
+    const x2 = tau + 1 < arr.length ? tau + 1 : tau;
+    if (x0 === tau || x2 === tau) return tau;
+
+    const s0 = arr[x0], s1 = arr[tau], s2 = arr[x2];
+    const denom = (s0 - 2 * s1 + s2);
+    if (denom === 0) return tau;
+
+    const delta = 0.5 * (s0 - s2) / denom;
+    return tau + delta;
+  }
+
+  // ---------- Pitch helpers ----------
+  function freqToMidi(f) { return Math.round(69 + 12 * Math.log2(f / 440)); }
+  function midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+  function centsOff(f, ref) { return 1200 * Math.log2(f / ref); }
+  function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+
+  // init
+  nextTarget();
+  drawScene();
+
+  window.addEventListener("pagehide", stopAudio);
+})();
+</script>
+</body>
+</html>
