@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>משחק זיהוי תווים</title>
 
-<!-- Pixel-ish font for UI (optional; falls back gracefully) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -324,26 +323,21 @@ canvas{ width:100%; height:auto; display:block; }
   const css = (v)=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
   // ---------- SCALE & CENTER ----------
-  const SCALE = 2; // ✅ requested
+  const SCALE = 2;
 
-  // Staff sizing
   const staffWidth = 210 * SCALE;
   const lineGap = 18 * SCALE;
 
-  function staffTop(){
-    return (cv.height - 4 * lineGap) / 2;
-  }
+  function staffTop(){ return (cv.height - 4 * lineGap) / 2; }
   function staffBottomLineY(){ return staffTop() + 4 * lineGap; }
   function staffMiddleY(){ return staffTop() + 2 * lineGap; }
 
   function staffLeft(){ return (cv.width - staffWidth) / 2; }
   function staffRight(){ return staffLeft() + staffWidth; }
 
-  // ---------- Clef lock (per-clef, based on your calibration images) ----------
-  // You calibrated: X=152, TrebleY=-23, BassY=12, TrebleSize=174, BassSize=110
-  // In centered layout, we treat X as an offset inside the staff:
+  // ---------- Clef lock (per-clef; from your calibration images) ----------
   const CLEF = {
-    xOffset: 32 * SCALE,          // (152 - 120) * SCALE
+    xOffset: 32 * SCALE,     // (152 - 120) * SCALE
     trebleY: -23 * SCALE,
     bassY: 12 * SCALE,
     trebleSize: 174 * SCALE,
@@ -358,13 +352,22 @@ canvas{ width:100%; height:auto; display:block; }
   const FFT = 2048;
   const buf = new Float32Array(FFT);
 
-  const RMS_GATE = 0.005;
-  const YIN_THRESHOLD = 0.12;
+  // קצת יותר שמרני כדי לא “לתפוס” דיבור מהר מדי
+  const RMS_GATE = 0.010;
+  const YIN_THRESHOLD = 0.10;
 
-  const SHOW_PROB_GATE = 0.60;
-  const HIT_PROB_GATE  = 0.70;
+  // יציבות: לא מציגים ולא שופטים לפני שזה יציב
+  const STABLE_MIN_MS = 280;          // זמן חסד למציאת צליל יציב
+  const STABLE_PROB_MIN = 0.78;       // חזק יותר, מוריד דיבור
+  const JITTER_CENTS_MAX = 18;        // כמה הפיץ' יכול לקפוץ בתוך החלון
+
+  const HIT_PROB_GATE  = 0.82;
   const HIT_CENTS_MAX  = 35;
-  const REQUIRED_STABLE_FRAMES = 6;
+  const REQUIRED_STABLE_FRAMES = 5;   // אחרי שכבר יציב, עוד קצת כדי לנעול
+
+  // חלון מדידה לפיץ' (ליציבות)
+  const pitchWindow = []; // {t, f, p}
+  const PITCH_WINDOW_MS = 500;
 
   let audioCtx=null, analyser=null, stream=null, raf=null, running=false;
 
@@ -397,7 +400,6 @@ canvas{ width:100%; height:auto; display:block; }
       const hit = opts.find(o => o.a === preferredAcc);
       if (hit) chosen = hit;
     } else if (opts.length === 2) {
-      // consistent default: sharps
       chosen = opts.find(o => o.a === +1) || opts[0];
     }
 
@@ -427,20 +429,25 @@ canvas{ width:100%; height:auto; display:block; }
   let bestStreak = 0;
   let answeredCount = 0;
 
-  // gating to avoid multiple penalties from one wrong note / while transitioning
+  // gating
   let stableCount = 0;
   let lastMidiSeen = null;
-  let locked = false;        // true while holding correct/timeouts/sliding
+  let locked = false;
   let sliding = false;
+
+  // Grace period for WRONG (punish only after holding wrong note)
+  const WRONG_GRACE_MS = 600;
+  let wrongStart = 0;
+  let wrongMidi = null;
 
   // ---------- Timing mode ----------
   const NOTE_TIME_LIMIT_MS = 20000;
   let noteDeadline = 0;
   let timerTick = null;
 
-  // ---------- Slide animation (speed already "perfect" per you) ----------
+  // ---------- Slide animation ----------
   let slideStart = 0;
-  const slideDuration = 1400; // keep
+  const slideDuration = 1400;
   let slideDist = 0;
   let oldTarget = null;
   let newTarget = null;
@@ -458,28 +465,21 @@ canvas{ width:100%; height:auto; display:block; }
   }
   function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 
-  // ---------- Start / Stop ----------
-  btn.onclick = async () => {
-    if (running) { stop(); return; }
-    await start();
-  };
-
+  // ---------- Modal / buttons ----------
   restartBtn.onclick = async () => {
     hideModal();
     if (!running) await start();
     else resetGame();
   };
+  closeModalBtn.onclick = () => hideModal();
 
-  closeModalBtn.onclick = () => {
-    hideModal();
+  btn.onclick = async () => {
+    if (running) { stop(); return; }
+    await start();
   };
 
   function setTimedUI(){
-    if (timedModeEl.checked) {
-      timerPill.style.display = "block";
-    } else {
-      timerPill.style.display = "none";
-    }
+    timerPill.style.display = timedModeEl.checked ? "block" : "none";
   }
   timedModeEl.addEventListener("change", () => {
     setTimedUI();
@@ -530,6 +530,10 @@ canvas{ width:100%; height:auto; display:block; }
 
     locked = false;
     sliding = false;
+
+    pitchWindow.length = 0;
+    wrongStart = 0;
+    wrongMidi = null;
   }
 
   function resetGame(){
@@ -544,14 +548,16 @@ canvas{ width:100%; height:auto; display:block; }
     locked = false;
     sliding = false;
 
+    wrongStart = 0;
+    wrongMidi = null;
+    pitchWindow.length = 0;
+
     scoreEl.textContent = score;
     streakEl.textContent = streak;
     bestStreakEl.textContent = bestStreak;
 
     hearts.forEach(h => {
       h.classList.remove("lost","shake");
-      h.style.opacity = "";
-      h.style.transform = "";
     });
 
     target = randomTarget();
@@ -564,10 +570,7 @@ canvas{ width:100%; height:auto; display:block; }
 
   // ---------- Timer per note ----------
   function stopNoteTimer(){
-    if (timerTick) {
-      clearInterval(timerTick);
-      timerTick = null;
-    }
+    if (timerTick) { clearInterval(timerTick); timerTick = null; }
   }
 
   function resetNoteTimer(){
@@ -591,9 +594,8 @@ canvas{ width:100%; height:auto; display:block; }
     }, 100);
   }
 
-  // ---------- Wrong / Penalty / Game over ----------
+  // ---------- Lives / game over ----------
   function loseLife(){
-    // leftmost alive heart shakes then disappears
     const idx = hearts.findIndex(h => !h.classList.contains("lost"));
     if (idx === -1) return;
 
@@ -602,14 +604,10 @@ canvas{ width:100%; height:auto; display:block; }
     void h.offsetWidth;
     h.classList.add("shake");
 
-    setTimeout(() => {
-      h.classList.add("lost");
-    }, 200);
+    setTimeout(() => h.classList.add("lost"), 200);
 
     lives--;
-    if (lives <= 0) {
-      setTimeout(() => endGame(), 260);
-    }
+    if (lives <= 0) setTimeout(() => endGame(), 260);
   }
 
   function endGame(){
@@ -617,7 +615,6 @@ canvas{ width:100%; height:auto; display:block; }
     sliding = false;
     stopNoteTimer();
 
-    // show modal
     mScore.textContent = String(score);
     mBest.textContent = String(bestStreak);
     mTimed.textContent = timedModeEl.checked ? "פועל" : "כבוי";
@@ -632,9 +629,8 @@ canvas{ width:100%; height:auto; display:block; }
 
   // ---------- Slide helpers ----------
   function computeSlideDist(){
-    // ensure old note truly slides out of the screen (not cut mid-way)
     const centerX = cv.width / 2;
-    const farRight = cv.width + 120; // safety margin
+    const farRight = cv.width + 120;
     return (farRight - centerX);
   }
 
@@ -642,7 +638,7 @@ canvas{ width:100%; height:auto; display:block; }
     if (sliding) return;
 
     sliding = true;
-    locked = true; // lock input during slide
+    locked = true;
 
     slideStart = performance.now();
     oldTarget = target;
@@ -650,23 +646,105 @@ canvas{ width:100%; height:auto; display:block; }
     slideDist = computeSlideDist();
   }
 
-  // ---------- Core loop ----------
+  // ---------- Pitch stabilization helpers ----------
+  function pushPitchSample(freq, prob){
+    const now = performance.now();
+
+    pitchWindow.push({ t: now, f: freq, p: prob });
+
+    // keep only last PITCH_WINDOW_MS
+    while (pitchWindow.length && (now - pitchWindow[0].t) > PITCH_WINDOW_MS) {
+      pitchWindow.shift();
+    }
+  }
+
+  function clearPitchWindow(){
+    pitchWindow.length = 0;
+  }
+
+  function median(arr){
+    if (!arr.length) return null;
+    const s = [...arr].sort((a,b)=>a-b);
+    const mid = Math.floor(s.length/2);
+    return s.length%2 ? s[mid] : (s[mid-1]+s[mid])/2;
+  }
+
+  function medianAbsDevCents(freqs){
+    if (freqs.length < 3) return 999;
+    const m = median(freqs);
+    const cents = freqs.map(f => 1200*Math.log2(f/m)).map(x => Math.abs(x));
+    return median(cents);
+  }
+
+  function getStablePitch(){
+    if (pitchWindow.length < 4) return null;
+
+    const now = performance.now();
+    const dur = now - pitchWindow[0].t;
+    if (dur < STABLE_MIN_MS) return null;
+
+    const probs = pitchWindow.map(s => s.p);
+    const freqs = pitchWindow.map(s => s.f);
+
+    const pMed = median(probs);
+    if (pMed == null || pMed < STABLE_PROB_MIN) return null;
+
+    // jitter filter (reject speechy/unstable)
+    const madCents = medianAbsDevCents(freqs);
+    if (madCents > JITTER_CENTS_MAX) return null;
+
+    // stable: use median freq
+    const fMed = median(freqs);
+    return { freq: fMed, prob: pMed, madCents };
+  }
+
+  // ---------- Harmonic / octave handling ----------
+  function normalizeToTarget(midi, targetMidi){
+    if (targetMidi == null) return midi;
+    let m = midi;
+    while (m - targetMidi > 6) m -= 12;
+    while (targetMidi - m > 6) m += 12;
+    return m;
+  }
+
+  // ---------- Main loop ----------
   function loop(){
     analyser.getFloatTimeDomainData(buf);
     const res = detectPitchYIN(buf, audioCtx.sampleRate);
 
     if (!locked && !sliding) {
-      if (res.freq && res.prob >= SHOW_PROB_GATE) {
-        const midi = freqToMidi(res.freq);
-        const cents = centsOff(res.freq, midiToFreq(midi));
-        onPlayed(midi, cents, res.prob);
-        check(midi, cents, res.prob);
+      if (res.freq && res.prob >= 0.55) {
+        pushPitchSample(res.freq, res.prob);
+        const stable = getStablePitch();
+
+        if (stable) {
+          let midi = freqToMidi(stable.freq);
+
+          // normalize octave relative to target to reduce harmonic lock
+          if (target) midi = normalizeToTarget(midi, target.midi);
+
+          const cents = centsOff(stable.freq, midiToFreq(midi));
+
+          onPlayed(midi, cents, stable.prob);
+          check(midi, cents, stable.prob);
+        } else {
+          // 아직 לא יציב: לא מציגים כלום (וזה מה שמפיל דיבור)
+          box.textContent = "";
+          box.className = "";
+          stableCount = 0;
+          lastMidiSeen = null;
+          wrongStart = 0;
+          wrongMidi = null;
+        }
       } else {
-        // no stable pitch
+        // no pitch / too weak
         box.textContent = "";
         box.className = "";
         stableCount = 0;
         lastMidiSeen = null;
+        wrongStart = 0;
+        wrongMidi = null;
+        clearPitchWindow();
       }
     }
 
@@ -675,14 +753,15 @@ canvas{ width:100%; height:auto; display:block; }
   }
 
   function onPlayed(midi, cents, prob){
-    const preferAcc = (target && midi === target.midi) ? target.accidental : null;
+    const preferAcc = (target && ((midi - target.midi) % 12 === 0)) ? target.accidental : null;
     const played = spellForMidi(midi, preferAcc);
 
     box.textContent = played.displayHeb;
 
+    const samePitchClass = target && ((midi - target.midi) % 12 === 0);
     const isCorrectNow =
       target &&
-      midi === target.midi &&
+      samePitchClass &&
       Math.abs(cents) <= HIT_CENTS_MAX &&
       prob >= HIT_PROB_GATE;
 
@@ -690,13 +769,18 @@ canvas{ width:100%; height:auto; display:block; }
   }
 
   function check(midi, cents, prob){
+    const samePitchClass = target && ((midi - target.midi) % 12 === 0);
+
     const ok =
       target &&
-      midi === target.midi &&
+      samePitchClass &&
       Math.abs(cents) <= HIT_CENTS_MAX &&
       prob >= HIT_PROB_GATE;
 
     if (ok) {
+      wrongStart = 0;
+      wrongMidi = null;
+
       if (lastMidiSeen === midi) stableCount++;
       else stableCount = 1;
 
@@ -704,18 +788,38 @@ canvas{ width:100%; height:auto; display:block; }
 
       if (stableCount >= REQUIRED_STABLE_FRAMES) onCorrect();
     } else {
-      if (prob >= HIT_PROB_GATE && Math.abs(cents) <= 60) {
-        if (lastMidiSeen !== midi) onWrong();
-        lastMidiSeen = midi;
-      }
       stableCount = 0;
+
+      const wrongCandidate =
+        prob >= HIT_PROB_GATE &&
+        Math.abs(cents) <= 70 &&
+        target &&
+        !samePitchClass;
+
+      const now = performance.now();
+
+      if (wrongCandidate) {
+        if (wrongMidi === midi) {
+          if (now - wrongStart >= WRONG_GRACE_MS) {
+            wrongStart = 0;
+            wrongMidi = null;
+            onWrong();
+          }
+        } else {
+          wrongMidi = midi;
+          wrongStart = now;
+        }
+      } else {
+        wrongStart = 0;
+        wrongMidi = null;
+      }
     }
   }
 
   function onWrong(){
-    // small delay then shake + lose life
     locked = true;
     stopNoteTimer();
+    clearPitchWindow();
 
     setTimeout(() => {
       stage.classList.remove("stageShake");
@@ -727,7 +831,6 @@ canvas{ width:100%; height:auto; display:block; }
 
       loseLife();
 
-      // unlock back after a short moment, unless game ended
       setTimeout(() => {
         if (lives > 0) {
           locked = false;
@@ -740,6 +843,7 @@ canvas{ width:100%; height:auto; display:block; }
   function onCorrect(){
     locked = true;
     stopNoteTimer();
+    clearPitchWindow();
 
     score++;
     answeredCount++;
@@ -752,32 +856,26 @@ canvas{ width:100%; height:auto; display:block; }
 
     stableCount = 0;
     lastMidiSeen = null;
+    wrongStart = 0;
+    wrongMidi = null;
 
-    // Hold the displayed played name & note for 1.5s, then slide to next
-    setTimeout(() => {
-      startSlideToNext();
-    }, 1500);
+    setTimeout(() => startSlideToNext(), 1500);
   }
 
   function onTimeout(){
     if (!running || locked || sliding) return;
 
     locked = true;
+    clearPitchWindow();
 
-    // show the correct answer name for 3 seconds
     box.textContent = target.displayHeb;
     box.className = "neutral";
 
-    // count as miss (life loss)
     setTimeout(() => {
       loseLife();
       if (lives <= 0) return;
 
-      // move to next note after showing answer
-      setTimeout(() => {
-        // start slide to next
-        startSlideToNext();
-      }, 120);
+      setTimeout(() => startSlideToNext(), 120);
     }, 3000);
   }
 
@@ -796,7 +894,6 @@ canvas{ width:100%; height:auto; display:block; }
     const p = Math.max(0, Math.min(1, t));
     const e = easeInOutCubic(p);
 
-    // old goes left out; new comes in from right
     const oldOffset = -slideDist * e;
     const newOffset =  slideDist * (1 - e);
 
@@ -811,7 +908,6 @@ canvas{ width:100%; height:auto; display:block; }
       oldTarget = null;
       newTarget = null;
 
-      // clear box only if not timed-mode timeout reveal
       box.textContent = "";
       box.className = "";
 
@@ -856,20 +952,18 @@ canvas{ width:100%; height:auto; display:block; }
     ctx.textBaseline = "middle";
 
     if (clef === "treble") {
-      const gLineY = top + 3 * lineGap; // 2nd from bottom
+      const gLineY = top + 3 * lineGap;
       ctx.font = `${CLEF.trebleSize}px 'Noto Music','Bravura','Segoe UI Symbol',serif`;
       ctx.fillText("𝄞", x, gLineY + CLEF.trebleY);
     } else {
-      const fLineY = top + 1 * lineGap; // 2nd from top
+      const fLineY = top + 1 * lineGap;
       ctx.font = `${CLEF.bassSize}px 'Noto Music','Bravura','Segoe UI Symbol',serif`;
       ctx.fillText("𝄢", x, fLineY + CLEF.bassY);
     }
   }
 
   function drawTargetNote(clef, noteObj, xOffset){
-    // ref bottom lines: treble E4, bass G2
     const ref = (clef === "treble") ? {L:2,o:4} : {L:4,o:2};
-
     const refD = diatonicNumber(ref.L, ref.o);
     const d = diatonicNumber(noteObj.letterIndex, noteObj.octave);
     const stepsFromRef = d - refD;
@@ -880,7 +974,6 @@ canvas{ width:100%; height:auto; display:block; }
 
     drawLedgerLines(x, y);
 
-    // accidental
     if (noteObj.accidental !== 0) {
       ctx.fillStyle = css("--staff");
       ctx.textAlign = "center";
@@ -889,7 +982,6 @@ canvas{ width:100%; height:auto; display:block; }
       ctx.fillText(accSymbol(noteObj.accidental), x - ACC_X_OFFSET, y);
     }
 
-    // note head (scaled; still not too huge)
     const rx = 13 * SCALE;
     const ry = 9.5 * SCALE;
 
@@ -902,7 +994,6 @@ canvas{ width:100%; height:auto; display:block; }
     ctx.fill();
     ctx.restore();
 
-    // stem
     const stemUp = y > staffMiddleY();
     const stemLength = 56 * SCALE;
 
@@ -994,6 +1085,7 @@ canvas{ width:100%; height:auto; display:block; }
     const freq = sampleRate / tauEstimate;
     const prob = clamp01(1 - cmndf[tauEstimate]);
 
+    // range sanity (still generous)
     if (freq < 50 || freq > 2000) return { freq:null, prob:0, rms };
     return { freq, prob, rms };
   }
@@ -1004,7 +1096,7 @@ canvas{ width:100%; height:auto; display:block; }
   function centsOff(f, ref){ return 1200 * Math.log2(f/ref); }
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
 
-  // init target (before start)
+  // init
   target = randomTarget();
   draw();
 
