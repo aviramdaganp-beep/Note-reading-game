@@ -733,17 +733,14 @@ canvas{ width:100%; height:auto; display:block; }
           box.className = "";
           stableCount = 0;
           lastMidiSeen = null;
-          wrongStart = 0;
-          wrongMidi = null;
         }
+        
       } else {
         // no pitch / too weak
         box.textContent = "";
         box.className = "";
         stableCount = 0;
         lastMidiSeen = null;
-        wrongStart = 0;
-        wrongMidi = null;
         clearPitchWindow();
       }
     }
@@ -791,8 +788,8 @@ canvas{ width:100%; height:auto; display:block; }
       stableCount = 0;
 
       const wrongCandidate =
-        prob >= HIT_PROB_GATE &&
-        Math.abs(cents) <= 70 &&
+        prob >= STABLE_PROB_MIN &&
+        Math.abs(cents) <= 120 &&
         target &&
         !samePitchClass;
 
