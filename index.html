@@ -133,13 +133,15 @@ canvas{ width:100%; height:auto; display:block; }
 
   // ---------- Staff layout (consistent, precise) ----------
   const L = {
-    staffTop: 150,
-    lineGap: 18,
-    left: 110,
-    right: 860,
-    noteX: 420,
-    accXOffset: 58
-  };
+  staffTop: 150,
+  lineGap: 18,
+  left: 110,
+  right: 860,
+
+  clefX: 150,     // המפתח נכנס לתוך החמשה
+  noteX: 420,
+  accXOffset: 44
+};
   const staffBottomLineY = () => L.staffTop + 4 * L.lineGap;
   const staffMiddleY = () => L.staffTop + 2 * L.lineGap;
 
