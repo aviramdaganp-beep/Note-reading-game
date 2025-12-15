@@ -4,6 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>משחק זיהוי תווים</title>
+
+<!-- Pixel-ish font for UI (optional; falls back gracefully) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
 <style>
 :root{
   --bg:#0f1220;
@@ -15,6 +21,7 @@
   --accent:#6c7cff;
   --muted:#aab2dd;
   --chip:rgba(255,255,255,0.06);
+  --shadow: rgba(0,0,0,0.35);
 }
 
 body{
@@ -36,20 +43,97 @@ button{
   color:white;
 }
 
-.top{
+#hud{
+  margin-top:12px;
   display:grid;
   grid-template-columns: 1fr auto;
-  align-items:center;
   gap:10px;
-  margin-top:12px;
+  align-items:center;
 }
 
-.score{
+#leftHud{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.pill{
   padding:10px 12px;
   border-radius:12px;
   background:var(--chip);
   color:var(--text);
   font-weight:900;
+}
+
+.pill small{
+  color:var(--muted);
+  font-weight:800;
+}
+
+#hearts{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  padding:10px 12px;
+  border-radius:12px;
+  background:var(--chip);
+}
+
+.heart{
+  font-family: "Press Start 2P", ui-monospace, Menlo, monospace;
+  font-size:18px;
+  line-height:1;
+  color:#ff5a7a;
+  text-shadow: 0 2px 0 var(--shadow);
+  transform: translateZ(0);
+}
+.heart.lost{
+  opacity:0;
+  transform: scale(0.6);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.heart.shake{
+  animation: heartShake 220ms ease-in-out;
+}
+@keyframes heartShake{
+  0%{ transform: translateX(0) scale(1); }
+  20%{ transform: translateX(-6px) scale(1.02); }
+  40%{ transform: translateX(6px) scale(1.02); }
+  60%{ transform: translateX(-4px) scale(1.01); }
+  80%{ transform: translateX(4px) scale(1.01); }
+  100%{ transform: translateX(0) scale(1); }
+}
+
+#rightHud{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+.toggle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:var(--chip);
+  color:var(--muted);
+  font-weight:900;
+}
+
+.toggle input{ transform: scale(1.15); }
+
+#timerPill{
+  padding:10px 12px;
+  border-radius:12px;
+  background:var(--chip);
+  color:var(--text);
+  font-weight:900;
+  display:none;
 }
 
 #stage{
@@ -75,7 +159,6 @@ canvas{ width:100%; height:auto; display:block; }
   letter-spacing:0.2px;
 }
 
-/* דיליי קל לאנימציית נכון */
 .good{
   color:var(--good);
   animation:pulse 0.52s ease;
@@ -83,6 +166,7 @@ canvas{ width:100%; height:auto; display:block; }
   animation-fill-mode:both;
 }
 .bad{ color:var(--bad); }
+.neutral{ color:var(--muted); }
 
 @keyframes pulse{
   0%{ transform:scale(1); }
@@ -90,7 +174,7 @@ canvas{ width:100%; height:auto; display:block; }
   100%{ transform:scale(1); }
 }
 
-.shake{ animation: shake 0.32s ease-in-out; }
+.stageShake{ animation: shake 0.32s ease-in-out; }
 @keyframes shake {
   0% { transform: translateX(0); }
   15% { transform: translateX(-10px); }
@@ -100,15 +184,87 @@ canvas{ width:100%; height:auto; display:block; }
   75% { transform: translateX(-5px); }
   100% { transform: translateX(0); }
 }
+
+/* Modal */
+#modalWrap{
+  position:fixed;
+  inset:0;
+  display:none;
+  place-items:center;
+  background: rgba(0,0,0,0.55);
+  z-index:9999;
+  padding:18px;
+}
+
+#modal{
+  width:min(520px, 100%);
+  border-radius:16px;
+  background: #141a31;
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+  padding:16px;
+}
+
+#modal h2{
+  margin:0 0 10px 0;
+  font-size:22px;
+}
+
+#modal .stats{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-bottom:14px;
+}
+
+#modal .stat{
+  padding:12px;
+  border-radius:14px;
+  background: var(--chip);
+  font-weight:900;
+}
+#modal .stat small{
+  display:block;
+  color: var(--muted);
+  font-weight:800;
+  margin-bottom:6px;
+}
+
+#modal .row{
+  display:flex;
+  gap:10px;
+}
+#modal button{
+  font-size:18px;
+}
+#modal .secondary{
+  background: rgba(255,255,255,0.12);
+}
 </style>
 </head>
 
 <body>
 <button id="btn">🎤 התחל</button>
 
-<div class="top">
-  <div style="color:var(--muted);font-weight:800;">נגן את התו שמופיע על החמשה</div>
-  <div class="score">ניקוד: <span id="score">0</span></div>
+<div id="hud">
+  <div id="leftHud">
+    <div id="hearts" aria-label="פסילות">
+      <span class="heart" id="h1">❤</span>
+      <span class="heart" id="h2">❤</span>
+      <span class="heart" id="h3">❤</span>
+    </div>
+
+    <div class="pill">ניקוד: <span id="score">0</span></div>
+    <div class="pill">רצף: <span id="streak">0</span> <small>(שיא <span id="bestStreak">0</span>)</small></div>
+  </div>
+
+  <div id="rightHud">
+    <label class="toggle">
+      <input type="checkbox" id="timedMode">
+      <span>מצב זמן</span>
+    </label>
+    <div id="timerPill">⏱ <span id="timer">20.0</span>s</div>
+  </div>
 </div>
 
 <div id="stage">
@@ -116,6 +272,22 @@ canvas{ width:100%; height:auto; display:block; }
 </div>
 
 <div id="noteBox"></div>
+
+<div id="modalWrap">
+  <div id="modal">
+    <h2>המשחק נגמר</h2>
+    <div class="stats">
+      <div class="stat"><small>ניקוד</small><span id="mScore">0</span></div>
+      <div class="stat"><small>שיא רצף</small><span id="mBest">0</span></div>
+      <div class="stat"><small>מצב זמן</small><span id="mTimed">כבוי</span></div>
+      <div class="stat"><small>סה״כ תווים שנענו</small><span id="mAnswered">0</span></div>
+    </div>
+    <div class="row">
+      <button id="restart">שחק שוב</button>
+      <button id="closeModal" class="secondary">סגור</button>
+    </div>
+  </div>
+</div>
 
 <audio playsinline></audio>
 
@@ -128,44 +300,58 @@ canvas{ width:100%; height:auto; display:block; }
   const ctx = cv.getContext("2d");
   const box = document.getElementById("noteBox");
   const scoreEl = document.getElementById("score");
+  const streakEl = document.getElementById("streak");
+  const bestStreakEl = document.getElementById("bestStreak");
+
+  const hearts = [
+    document.getElementById("h1"),
+    document.getElementById("h2"),
+    document.getElementById("h3")
+  ];
+
+  const timedModeEl = document.getElementById("timedMode");
+  const timerPill = document.getElementById("timerPill");
+  const timerEl = document.getElementById("timer");
+
+  const modalWrap = document.getElementById("modalWrap");
+  const mScore = document.getElementById("mScore");
+  const mBest = document.getElementById("mBest");
+  const mTimed = document.getElementById("mTimed");
+  const mAnswered = document.getElementById("mAnswered");
+  const restartBtn = document.getElementById("restart");
+  const closeModalBtn = document.getElementById("closeModal");
 
   const css = (v)=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
-  // ---------- SCALE + CENTER ----------
-  const SCALE = 1.5;
+  // ---------- SCALE & CENTER ----------
+  const SCALE = 2; // ✅ requested
 
-  // קיצרנו עוד בחצי (לעומת הקצרה שהייתה), ואז הגדלנו פרופורציונלית ×1.5
-  // (בפועל: קצר יותר מקודם + גדול יותר מבחינת גובה/סמלים)
-  const staffWidth = 210 * SCALE;     // קצר מאוד, ממורכז
-  const lineGap = 18 * SCALE;         // חמשה גדולה ב-50%
+  // Staff sizing
+  const staffWidth = 210 * SCALE;
+  const lineGap = 18 * SCALE;
 
-  // staffTop ממורכז אנכית בקנבס
   function staffTop(){
     return (cv.height - 4 * lineGap) / 2;
   }
-
   function staffBottomLineY(){ return staffTop() + 4 * lineGap; }
   function staffMiddleY(){ return staffTop() + 2 * lineGap; }
 
-  // staffLeft/Right ממורכזים אופקית
   function staffLeft(){ return (cv.width - staffWidth) / 2; }
   function staffRight(){ return staffLeft() + staffWidth; }
 
-  // ---------- Clef lock (מהמספרים שלך, מותאם סקייל) ----------
-  // הערכים ששלחת:
-  // X=152, TrebleY=-23, BassY=12, TrebleSize=174, BassSize=110
-  // עכשיו: כל המערכת ממורכזת, אז X נהיה "offset בתוך החמשה".
+  // ---------- Clef lock (per-clef, based on your calibration images) ----------
+  // You calibrated: X=152, TrebleY=-23, BassY=12, TrebleSize=174, BassSize=110
+  // In centered layout, we treat X as an offset inside the staff:
   const CLEF = {
-    xOffset: 32 * SCALE,              // (152-120)=32 → ×1.5
-    trebleY: -23 * SCALE,             // ×1.5
-    bassY: 12 * SCALE,                // ×1.5
-    trebleSize: 174 * SCALE,          // ×1.5
-    bassSize: 110 * SCALE             // ×1.5
+    xOffset: 32 * SCALE,          // (152 - 120) * SCALE
+    trebleY: -23 * SCALE,
+    bassY: 12 * SCALE,
+    trebleSize: 174 * SCALE,
+    bassSize: 110 * SCALE
   };
 
-  // note placement inside short staff (proportional)
   function clefX(){ return staffLeft() + CLEF.xOffset; }
-  function noteX(){ return staffLeft() + staffWidth * 0.66; } // בתוך החמשה, אחרי המפתח
+  function noteX(){ return staffLeft() + staffWidth * 0.66; }
   const ACC_X_OFFSET = 34 * SCALE;
 
   // ---------- Pitch (YIN) ----------
@@ -181,8 +367,6 @@ canvas{ width:100%; height:auto; display:block; }
   const REQUIRED_STABLE_FRAMES = 6;
 
   let audioCtx=null, analyser=null, stream=null, raf=null, running=false;
-  let stableCount = 0;
-  let lastMidiSeen = null;
 
   // ---------- Notes / spelling ----------
   const HEB = ["דו","רה","מי","פה","סול","לה","סי"];  // C D E F G A B
@@ -213,6 +397,7 @@ canvas{ width:100%; height:auto; display:block; }
       const hit = opts.find(o => o.a === preferredAcc);
       if (hit) chosen = hit;
     } else if (opts.length === 2) {
+      // consistent default: sharps
       chosen = opts.find(o => o.a === +1) || opts[0];
     }
 
@@ -235,7 +420,34 @@ canvas{ width:100%; height:auto; display:block; }
 
   let target = null;
 
+  // ---------- Game state ----------
+  let lives = 3;
   let score = 0;
+  let streak = 0;
+  let bestStreak = 0;
+  let answeredCount = 0;
+
+  // gating to avoid multiple penalties from one wrong note / while transitioning
+  let stableCount = 0;
+  let lastMidiSeen = null;
+  let locked = false;        // true while holding correct/timeouts/sliding
+  let sliding = false;
+
+  // ---------- Timing mode ----------
+  const NOTE_TIME_LIMIT_MS = 20000;
+  let noteDeadline = 0;
+  let timerTick = null;
+
+  // ---------- Slide animation (speed already "perfect" per you) ----------
+  let slideStart = 0;
+  const slideDuration = 1400; // keep
+  let slideDist = 0;
+  let oldTarget = null;
+  let newTarget = null;
+
+  function easeInOutCubic(t){
+    return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
+  }
 
   function randomTarget(){
     const midi = randInt(MIDI_MIN, MIDI_MAX);
@@ -246,31 +458,35 @@ canvas{ width:100%; height:auto; display:block; }
   }
   function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 
-  // ---------- Slide animation (SLOW + easing) ----------
-  let sliding = false;
-  let slideStart = 0;
-  const slideDuration = 1400;                 // הרבה יותר איטי
-  let slideDist = 0;                          // יחושב דינמית לפי רוחב החמשה
-
-  let oldTarget = null;
-  let newTarget = null;
-
-  function easeInOutCubic(t){
-    return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
-  }
-
-  function startSlideToNext(){
-    if (sliding) return;
-    sliding = true;
-    slideStart = performance.now();
-    oldTarget = target;
-    newTarget = randomTarget();
-    slideDist = staffWidth + 220;            // כדי שהכול “יזוז החוצה” גם עם חמשה קצרה
-  }
-
-  // ---------- Audio start/stop ----------
+  // ---------- Start / Stop ----------
   btn.onclick = async () => {
     if (running) { stop(); return; }
+    await start();
+  };
+
+  restartBtn.onclick = async () => {
+    hideModal();
+    if (!running) await start();
+    else resetGame();
+  };
+
+  closeModalBtn.onclick = () => {
+    hideModal();
+  };
+
+  function setTimedUI(){
+    if (timedModeEl.checked) {
+      timerPill.style.display = "block";
+    } else {
+      timerPill.style.display = "none";
+    }
+  }
+  timedModeEl.addEventListener("change", () => {
+    setTimedUI();
+    if (running && !locked && !sliding) resetNoteTimer();
+  });
+
+  async function start(){
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio:true });
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -285,50 +501,173 @@ canvas{ width:100%; height:auto; display:block; }
       running = true;
       btn.textContent = "⏹ עצור";
 
-      score = 0; scoreEl.textContent = score;
-      box.textContent = ""; box.className = "";
-      stableCount = 0; lastMidiSeen = null;
-
-      target = randomTarget();
-      sliding = false;
-      draw();
+      setTimedUI();
+      resetGame();
       loop();
     } catch(e){
       box.textContent = "שגיאת מיקרופון";
       box.className = "bad";
     }
-  };
+  }
 
   function stop(){
     running = false;
     btn.textContent = "🎤 התחל";
     if (raf) cancelAnimationFrame(raf);
     raf = null;
+
+    stopNoteTimer();
+
     if (stream) stream.getTracks().forEach(t=>t.stop());
     stream = null;
+
     if (audioCtx) audioCtx.close();
     audioCtx = null;
     analyser = null;
+
     box.textContent = "";
     box.className = "";
+
+    locked = false;
     sliding = false;
   }
 
-  // ---------- Main loop ----------
+  function resetGame(){
+    lives = 3;
+    score = 0;
+    streak = 0;
+    bestStreak = 0;
+    answeredCount = 0;
+
+    stableCount = 0;
+    lastMidiSeen = null;
+    locked = false;
+    sliding = false;
+
+    scoreEl.textContent = score;
+    streakEl.textContent = streak;
+    bestStreakEl.textContent = bestStreak;
+
+    hearts.forEach(h => {
+      h.classList.remove("lost","shake");
+      h.style.opacity = "";
+      h.style.transform = "";
+    });
+
+    target = randomTarget();
+    box.textContent = "";
+    box.className = "";
+
+    resetNoteTimer();
+    draw();
+  }
+
+  // ---------- Timer per note ----------
+  function stopNoteTimer(){
+    if (timerTick) {
+      clearInterval(timerTick);
+      timerTick = null;
+    }
+  }
+
+  function resetNoteTimer(){
+    stopNoteTimer();
+    if (!timedModeEl.checked) return;
+
+    noteDeadline = performance.now() + NOTE_TIME_LIMIT_MS;
+    timerEl.textContent = "20.0";
+
+    timerTick = setInterval(() => {
+      if (!running || locked || sliding) return;
+
+      const msLeft = noteDeadline - performance.now();
+      const sLeft = Math.max(0, msLeft / 1000);
+      timerEl.textContent = sLeft.toFixed(1);
+
+      if (msLeft <= 0) {
+        stopNoteTimer();
+        onTimeout();
+      }
+    }, 100);
+  }
+
+  // ---------- Wrong / Penalty / Game over ----------
+  function loseLife(){
+    // leftmost alive heart shakes then disappears
+    const idx = hearts.findIndex(h => !h.classList.contains("lost"));
+    if (idx === -1) return;
+
+    const h = hearts[idx];
+    h.classList.remove("shake");
+    void h.offsetWidth;
+    h.classList.add("shake");
+
+    setTimeout(() => {
+      h.classList.add("lost");
+    }, 200);
+
+    lives--;
+    if (lives <= 0) {
+      setTimeout(() => endGame(), 260);
+    }
+  }
+
+  function endGame(){
+    locked = true;
+    sliding = false;
+    stopNoteTimer();
+
+    // show modal
+    mScore.textContent = String(score);
+    mBest.textContent = String(bestStreak);
+    mTimed.textContent = timedModeEl.checked ? "פועל" : "כבוי";
+    mAnswered.textContent = String(answeredCount);
+
+    modalWrap.style.display = "grid";
+  }
+
+  function hideModal(){
+    modalWrap.style.display = "none";
+  }
+
+  // ---------- Slide helpers ----------
+  function computeSlideDist(){
+    // ensure old note truly slides out of the screen (not cut mid-way)
+    const centerX = cv.width / 2;
+    const farRight = cv.width + 120; // safety margin
+    return (farRight - centerX);
+  }
+
+  function startSlideToNext(){
+    if (sliding) return;
+
+    sliding = true;
+    locked = true; // lock input during slide
+
+    slideStart = performance.now();
+    oldTarget = target;
+    newTarget = randomTarget();
+    slideDist = computeSlideDist();
+  }
+
+  // ---------- Core loop ----------
   function loop(){
     analyser.getFloatTimeDomainData(buf);
     const res = detectPitchYIN(buf, audioCtx.sampleRate);
 
-    if (res.freq && res.prob >= SHOW_PROB_GATE) {
-      const midi = freqToMidi(res.freq);
-      const cents = centsOff(res.freq, midiToFreq(midi));
-      onPlayed(midi, cents, res.prob);
-      check(midi, cents, res.prob);
-    } else {
-      box.textContent = "";
-      box.className = "";
-      stableCount = 0;
-      lastMidiSeen = null;
+    if (!locked && !sliding) {
+      if (res.freq && res.prob >= SHOW_PROB_GATE) {
+        const midi = freqToMidi(res.freq);
+        const cents = centsOff(res.freq, midiToFreq(midi));
+        onPlayed(midi, cents, res.prob);
+        check(midi, cents, res.prob);
+      } else {
+        // no stable pitch
+        box.textContent = "";
+        box.className = "";
+        stableCount = 0;
+        lastMidiSeen = null;
+      }
     }
 
     draw();
@@ -341,14 +680,21 @@ canvas{ width:100%; height:auto; display:block; }
 
     box.textContent = played.displayHeb;
 
-    const isCorrectNow = target && midi === target.midi && Math.abs(cents) <= HIT_CENTS_MAX && prob >= HIT_PROB_GATE;
+    const isCorrectNow =
+      target &&
+      midi === target.midi &&
+      Math.abs(cents) <= HIT_CENTS_MAX &&
+      prob >= HIT_PROB_GATE;
+
     box.className = isCorrectNow ? "good" : "bad";
   }
 
   function check(midi, cents, prob){
-    if (sliding) return;
-
-    const ok = target && midi === target.midi && Math.abs(cents) <= HIT_CENTS_MAX && prob >= HIT_PROB_GATE;
+    const ok =
+      target &&
+      midi === target.midi &&
+      Math.abs(cents) <= HIT_CENTS_MAX &&
+      prob >= HIT_PROB_GATE;
 
     if (ok) {
       if (lastMidiSeen === midi) stableCount++;
@@ -367,25 +713,72 @@ canvas{ width:100%; height:auto; display:block; }
   }
 
   function onWrong(){
-    // דיליי קל לפני רעד
+    // small delay then shake + lose life
+    locked = true;
+    stopNoteTimer();
+
     setTimeout(() => {
-      stage.classList.remove("shake");
+      stage.classList.remove("stageShake");
       void stage.offsetWidth;
-      stage.classList.add("shake");
+      stage.classList.add("stageShake");
+
+      streak = 0;
+      streakEl.textContent = String(streak);
+
+      loseLife();
+
+      // unlock back after a short moment, unless game ended
+      setTimeout(() => {
+        if (lives > 0) {
+          locked = false;
+          resetNoteTimer();
+        }
+      }, 420);
     }, 140);
   }
 
   function onCorrect(){
+    locked = true;
+    stopNoteTimer();
+
     score++;
-    scoreEl.textContent = score;
+    answeredCount++;
+    scoreEl.textContent = String(score);
+
+    streak++;
+    bestStreak = Math.max(bestStreak, streak);
+    streakEl.textContent = String(streak);
+    bestStreakEl.textContent = String(bestStreak);
 
     stableCount = 0;
     lastMidiSeen = null;
 
-    // דיליי קל לפני סלייד (כדי שה"נכון" יורגש)
+    // Hold the displayed played name & note for 1.5s, then slide to next
     setTimeout(() => {
       startSlideToNext();
-    }, 180);
+    }, 1500);
+  }
+
+  function onTimeout(){
+    if (!running || locked || sliding) return;
+
+    locked = true;
+
+    // show the correct answer name for 3 seconds
+    box.textContent = target.displayHeb;
+    box.className = "neutral";
+
+    // count as miss (life loss)
+    setTimeout(() => {
+      loseLife();
+      if (lives <= 0) return;
+
+      // move to next note after showing answer
+      setTimeout(() => {
+        // start slide to next
+        startSlideToNext();
+      }, 120);
+    }, 3000);
   }
 
   // ---------- Drawing ----------
@@ -403,7 +796,7 @@ canvas{ width:100%; height:auto; display:block; }
     const p = Math.max(0, Math.min(1, t));
     const e = easeInOutCubic(p);
 
-    // old goes left, new comes from right
+    // old goes left out; new comes in from right
     const oldOffset = -slideDist * e;
     const newOffset =  slideDist * (1 - e);
 
@@ -412,11 +805,17 @@ canvas{ width:100%; height:auto; display:block; }
 
     if (p >= 1) {
       sliding = false;
+      locked = false;
+
       target = newTarget;
       oldTarget = null;
       newTarget = null;
+
+      // clear box only if not timed-mode timeout reveal
       box.textContent = "";
       box.className = "";
+
+      resetNoteTimer();
     }
   }
 
@@ -457,20 +856,20 @@ canvas{ width:100%; height:auto; display:block; }
     ctx.textBaseline = "middle";
 
     if (clef === "treble") {
-      // G line = 2nd from bottom => index 3
-      const gLineY = top + 3 * lineGap;
+      const gLineY = top + 3 * lineGap; // 2nd from bottom
       ctx.font = `${CLEF.trebleSize}px 'Noto Music','Bravura','Segoe UI Symbol',serif`;
       ctx.fillText("𝄞", x, gLineY + CLEF.trebleY);
     } else {
-      // F line = 2nd from top => index 1
-      const fLineY = top + 1 * lineGap;
+      const fLineY = top + 1 * lineGap; // 2nd from top
       ctx.font = `${CLEF.bassSize}px 'Noto Music','Bravura','Segoe UI Symbol',serif`;
       ctx.fillText("𝄢", x, fLineY + CLEF.bassY);
     }
   }
 
   function drawTargetNote(clef, noteObj, xOffset){
-    const ref = (clef === "treble") ? {L:2,o:4} : {L:4,o:2}; // E4 / G2 bottom lines
+    // ref bottom lines: treble E4, bass G2
+    const ref = (clef === "treble") ? {L:2,o:4} : {L:4,o:2};
+
     const refD = diatonicNumber(ref.L, ref.o);
     const d = diatonicNumber(noteObj.letterIndex, noteObj.octave);
     const stepsFromRef = d - refD;
@@ -481,7 +880,7 @@ canvas{ width:100%; height:auto; display:block; }
 
     drawLedgerLines(x, y);
 
-    // accidental (bigger)
+    // accidental
     if (noteObj.accidental !== 0) {
       ctx.fillStyle = css("--staff");
       ctx.textAlign = "center";
@@ -490,7 +889,7 @@ canvas{ width:100%; height:auto; display:block; }
       ctx.fillText(accSymbol(noteObj.accidental), x - ACC_X_OFFSET, y);
     }
 
-    // note head (scaled up, but "טיפה קטן" ביחס לגרסה הקודמת שלך)
+    // note head (scaled; still not too huge)
     const rx = 13 * SCALE;
     const ry = 9.5 * SCALE;
 
@@ -503,7 +902,7 @@ canvas{ width:100%; height:auto; display:block; }
     ctx.fill();
     ctx.restore();
 
-    // stem (scaled)
+    // stem
     const stemUp = y > staffMiddleY();
     const stemLength = 56 * SCALE;
 
@@ -531,14 +930,12 @@ canvas{ width:100%; height:auto; display:block; }
     const left = x - w;
     const right = x + w;
 
-    // Above
     for (let ly = topLine - lineGap; y < ly + 1; ly -= lineGap) {
       ctx.beginPath();
       ctx.moveTo(left, ly);
       ctx.lineTo(right, ly);
       ctx.stroke();
     }
-    // Below
     for (let ly = bottomLine + lineGap; y > ly - 1; ly += lineGap) {
       ctx.beginPath();
       ctx.moveTo(left, ly);
@@ -607,9 +1004,10 @@ canvas{ width:100%; height:auto; display:block; }
   function centsOff(f, ref){ return 1200 * Math.log2(f/ref); }
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
 
-  // init
+  // init target (before start)
   target = randomTarget();
   draw();
+
   window.addEventListener("pagehide", stop);
 })();
 </script>
