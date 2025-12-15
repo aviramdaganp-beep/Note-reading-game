@@ -432,6 +432,14 @@ canvas{ width:100%; height:auto; display:block; }
   let wrongStart = 0;
   let wrongActive = false;
 
+  let penaltyCooldownUntil = 0;
+let requireSilence = false;
+let silenceStart = 0;
+
+const PENALTY_COOLDOWN_MS = 650;   // כמה זמן אסור להעניש שוב אחרי טעות
+const SILENCE_RMS = 0.008;         // מה נחשב “שקט”
+const SILENCE_HOLD_MS = 120;       // כמה זמן שקט צריך להחזיק
+
   // ---------- Timing mode ----------
   const NOTE_TIME_LIMIT_MS = 20000;
   let noteDeadline = 0;
@@ -698,6 +706,21 @@ canvas{ width:100%; height:auto; display:block; }
     analyser.getFloatTimeDomainData(buf);
     const res = detectPitchYIN(buf, audioCtx.sampleRate);
 
+    const now = performance.now();
+
+// אם הענשנו (טעות/טיימאאוט) — לא מאפשרים ענישה נוספת עד שיש שקט קצר
+if (requireSilence) {
+  if (res.rms < SILENCE_RMS) {
+    if (!silenceStart) silenceStart = now;
+    if (now - silenceStart >= SILENCE_HOLD_MS) {
+      requireSilence = false;
+      silenceStart = 0;
+    }
+  } else {
+    silenceStart = 0;
+  }
+}
+
     if (!locked && !sliding) {
       if (res.freq && res.prob >= 0.55) {
         pushPitchSample(res.freq, res.prob);
@@ -754,6 +777,8 @@ canvas{ width:100%; height:auto; display:block; }
   }
 
   function check(midi, cents, prob){
+    const now = performance.now();
+if (now < penaltyCooldownUntil || requireSilence) return;
     const samePC = target && samePitchClass(midi, target.midi);
 
     const ok =
@@ -806,6 +831,9 @@ canvas{ width:100%; height:auto; display:block; }
     locked = true;
     stopNoteTimer();
     clearPitchWindow();
+    penaltyCooldownUntil = performance.now() + PENALTY_COOLDOWN_MS;
+requireSilence = true;
+silenceStart = 0;
 
     wrongActive = false;
     wrongStart = 0;
@@ -858,6 +886,9 @@ canvas{ width:100%; height:auto; display:block; }
 
     locked = true;
     clearPitchWindow();
+    penaltyCooldownUntil = performance.now() + PENALTY_COOLDOWN_MS;
+requireSilence = true;
+silenceStart = 0;
     wrongActive = false;
     wrongStart = 0;
 
