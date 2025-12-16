@@ -743,41 +743,31 @@ canvas{ width:100%; height:auto; display:block; }
 
         // UI: show quicker (shorter min)
         const uiStable = getStablePitch(UI_MIN_MS, 0.66, 45);
+const stable   = getStablePitch(STABLE_MIN_MS, STABLE_PROB_MIN, JITTER_CENTS_MAX);
 
-        // Logic: stricter stable pitch
-        const stable = getStablePitch(STABLE_MIN_MS, STABLE_PROB_MIN, JITTER_CENTS_MAX);
+// 1) תצוגה (מהיר)
+if (uiStable) {
+  let uiMidi = freqToMidi(uiStable.freq);
+  if (target) uiMidi = normalizeToTarget(uiMidi, target.midi);
+  const uiCents = centsOff(uiStable.freq, midiToFreq(uiMidi));
+  onPlayed(uiMidi, uiCents, uiStable.prob);
+} else {
+  box.textContent = "";
+  box.className = "";
+}
 
-        if (uiStable) {
-          let uiMidi = freqToMidi(uiStable.freq);
-          if (target) uiMidi = normalizeToTarget(uiMidi, target.midi);
-          const uiCents = centsOff(uiStable.freq, midiToFreq(uiMidi));
-          onPlayed(uiMidi, uiCents, uiStable.prob);
-        } else {
-          box.textContent = "";
-          box.className = "";
-        }
+// 2) לוגיקת משחק: אם אין stable, משתמשים ב-uiStable כדי שלא “נראה אדום בלי פסילה”
+const decision = stable || uiStable;
 
-        if (stable) {
-          let midi = freqToMidi(stable.freq);
-          if (target) midi = normalizeToTarget(midi, target.midi);
-          const cents = centsOff(stable.freq, midiToFreq(midi));
-          check(midi, cents, stable.prob, now);
-        } else {
-          // do not reset wrong state here; prevents "never reaches grace"
-          stableCount = 0;
-          lastMidiSeen = null;
-        }
-      } else {
-        // no usable sound: reset
-        box.textContent = "";
-        box.className = "";
-        stableCount = 0;
-        lastMidiSeen = null;
-        wrongStart = 0;
-        wrongActive = false;
-        clearPitchWindow();
-      }
-    }
+if (decision) {
+  let midi = freqToMidi(decision.freq);
+  if (target) midi = normalizeToTarget(midi, target.midi);
+  const cents = centsOff(decision.freq, midiToFreq(midi));
+  check(midi, cents, decision.prob, now);
+} else {
+  stableCount = 0;
+  lastMidiSeen = null;
+}
 
     draw();
     raf = requestAnimationFrame(loop);
