@@ -281,10 +281,13 @@ canvas{ width:100%; height:auto; display:block; }
   // Correct gating
   const HIT_CENTS_MAX = 35;
   const HIT_PROB_MIN = 0.82;
-  const HIT_HOLD_MS = 90;
+  const HOLD_MS = 90;  // זה הזמן היחיד שמרגיש כמו "צריך להחזיק"
+  const HIT_HOLD_MS = HOLD_MS;
+
+  
 
   // Wrong gating (punish reliably)
-  const WRONG_GRACE_MS = 220;
+  const WRONG_GRACE_MS = HOLD_MS;
   const WRONG_PROB_MIN = 0.68;
   const WRONG_CENTS_MAX = 320;
 
@@ -540,7 +543,7 @@ canvas{ width:100%; height:auto; display:block; }
   function computeDetected(){
     if (samples.length < 4) return null;
     const dur = samples[samples.length-1].t - samples[0].t;
-    if (dur < WIN_MS*0.60) return null;
+    if (dur < HOLD_MS) return null;
 
     const probs = samples.map(s=>s.p);
     const freqs = samples.map(s=>s.f);
