@@ -568,42 +568,21 @@ canvas{ width:100%; height:auto; display:block; }
     }
 
     // show played note always from detected.midi (true octave)
-    const samePC = target && samePitchClass(detected.midi, target.midi);
-    const preferAcc = samePC && target ? target.accidental : null;
-    const played = spellForMidi(detected.midi, preferAcc);
+    const sameExact = target && (detected.midi === target.midi);
+const preferAcc = target ? target.accidental : null; // מציג את ההיתק של היעד (לא לפי מה שניגנת)
 
-    const isCorrect =
-      target &&
-      samePC &&
-      Math.abs(detected.cents) <= HIT_CENTS_MAX &&
-      detected.prob >= HIT_PROB_MIN;
+const isCorrect =
+  target &&
+  sameExact &&
+  Math.abs(detected.cents) <= HIT_CENTS_MAX &&
+  detected.prob >= HIT_PROB_MIN;
 
-    box.textContent = played.displayHeb;
-    box.className = isCorrect ? "good" : "bad";
-
-    // correct hold -> accept
-    if (isCorrect) {
-      wrongStart = 0;
-      wrongPC = null;
-
-      if (!correctStart) correctStart = now;
-      if (now - correctStart >= HIT_HOLD_MS) {
-        onCorrect();
-      }
-      return;
-    }
-
-    correctStart = 0;
-
-    // wrong punish
-    if (now < penaltyCooldownUntil) return;
-
-    const wrongCandidate =
-      target &&
-      !samePC &&
-      detected.prob >= WRONG_PROB_MIN &&
-      Math.abs(detected.cents) <= WRONG_CENTS_MAX;
-
+const wrongCandidate =
+  target &&
+  !sameExact &&                       // כל דבר שאינו אותו MIDI בדיוק = טעות (כולל אוקטבה שגויה)
+  detected.prob >= WRONG_PROB_MIN &&
+  Math.abs(detected.cents) <= WRONG_CENTS_MAX;
+    
     if (!wrongCandidate) {
       wrongStart = 0;
       wrongPC = null;
