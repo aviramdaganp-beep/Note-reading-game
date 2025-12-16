@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>משחק זיהוי תווים</title>
+<title>משחק זיהוי צלילים</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -157,8 +157,8 @@ canvas{ width:100%; height:auto; display:block; }
 
 .good{
   color:var(--good);
-  animation:pulse 0.52s ease;
-  animation-delay:140ms;
+  animation:pulse 0.50s ease;
+  animation-delay:100ms;
   animation-fill-mode:both;
 }
 .bad{ color:var(--bad); }
@@ -166,7 +166,7 @@ canvas{ width:100%; height:auto; display:block; }
 
 @keyframes pulse{
   0%{ transform:scale(1); }
-  40%{ transform:scale(1.16); }
+  40%{ transform:scale(1.14); }
   100%{ transform:scale(1); }
 }
 
@@ -313,6 +313,12 @@ canvas{ width:100%; height:auto; display:block; }
   const restartBtn = document.getElementById("restart");
   const closeModalBtn = document.getElementById("closeModal");
 
+  // show runtime errors on screen (mobile-friendly)
+  window.onerror = (msg, src, line, col) => {
+    box.textContent = `JS ERROR: line ${line}`;
+    box.className = "bad";
+  };
+
   const css = (v)=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
   // ---------- SCALE & STAFF ----------
@@ -326,7 +332,7 @@ canvas{ width:100%; height:auto; display:block; }
   function staffLeft(){ return (cv.width - staffWidth) / 2; }
   function staffRight(){ return staffLeft() + staffWidth; }
 
-  // ---------- Clef lock (your calibration) ----------
+  // ---------- Clef lock (from your calibration) ----------
   const CLEF = {
     xOffset: 32 * SCALE,
     trebleY: -23 * SCALE,
@@ -339,7 +345,7 @@ canvas{ width:100%; height:auto; display:block; }
   function noteX(){ return staffLeft() + staffWidth * 0.66; }
   const ACC_X_OFFSET = 34 * SCALE;
 
-  // ---------- Pitch (YIN) ----------
+  // ---------- Audio / Pitch ----------
   const FFT = 2048;
   const buf = new Float32Array(FFT);
 
@@ -347,27 +353,30 @@ canvas{ width:100%; height:auto; display:block; }
   const RMS_GATE = 0.010;
   const YIN_THRESHOLD = 0.10;
 
-  // stability / anti-speech
+  // FAST UI stability (short)
+  const UI_MIN_MS = 90;
+
+  // stability / anti-speech (for gameplay decisions)
   const STABLE_MIN_MS = 140;
-  const STABLE_PROB_MIN = 0.78;
-  const JITTER_CENTS_MAX = 18;
+  const STABLE_PROB_MIN = 0.76;
+  const JITTER_CENTS_MAX = 22;
 
   // hit (correct)
   const HIT_PROB_GATE  = 0.82;
   const HIT_CENTS_MAX  = 35;
-  const REQUIRED_STABLE_FRAMES = 5;
+  const REQUIRED_STABLE_FRAMES = 4;
 
-  // wrong grace (punish only after holding WRONG state)
-  const WRONG_GRACE_MS = 150;
+  // wrong grace (punish after holding WRONG state)
+  const WRONG_GRACE_MS = 260;
 
-  // window for stabilization
-  const pitchWindow = []; // {t,f,p}
-  const PITCH_WINDOW_MS = 500;
+  // stabilization window
+  const pitchWindow = []; // {t,f,p,rms}
+  const PITCH_WINDOW_MS = 380;
 
   let audioCtx=null, analyser=null, stream=null, raf=null, running=false;
 
   // ---------- Notes / spelling ----------
-  const HEB = ["דו","רה","מי","פה","סול","לה","סי"];  // C D E F G A B
+  const HEB = ["דו","רה","מי","פה","סול","לה","סי"];
 
   const PC_TO_SPELLINGS = {
     0:  [{L:0,a:0}],
@@ -383,6 +392,7 @@ canvas{ width:100%; height:auto; display:block; }
     10: [{L:5,a:+1},{L:6,a:-1}],
     11: [{L:6,a:0}],
   };
+
   const accSymbol = (a)=> a===+1 ? "♯" : a===-1 ? "♭" : "";
 
   function spellForMidi(midi, preferredAcc=null){
@@ -428,17 +438,18 @@ canvas{ width:100%; height:auto; display:block; }
   let locked = false;
   let sliding = false;
 
-  // WRONG state (not per-midi)
+  // WRONG state
   let wrongStart = 0;
   let wrongActive = false;
 
+  // cooldown + silence requirement (prevents multiple penalties on one sustained wrong note)
   let penaltyCooldownUntil = 0;
-let requireSilence = false;
-let silenceStart = 0;
+  let requireSilence = false;
+  let silenceStart = 0;
 
-const PENALTY_COOLDOWN_MS = 650;   // כמה זמן אסור להעניש שוב אחרי טעות
-const SILENCE_RMS = 0.008;         // מה נחשב “שקט”
-const SILENCE_HOLD_MS = 120;       // כמה זמן שקט צריך להחזיק
+  const PENALTY_COOLDOWN_MS = 520;
+  const SILENCE_RMS = 0.008;
+  const SILENCE_HOLD_MS = 110;
 
   // ---------- Timing mode ----------
   const NOTE_TIME_LIMIT_MS = 20000;
@@ -496,7 +507,7 @@ const SILENCE_HOLD_MS = 120;       // כמה זמן שקט צריך להחזיק
       const src = audioCtx.createMediaStreamSource(stream);
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = FFT;
-      analyser.smoothingTimeConstant = 0.15;
+      analyser.smoothingTimeConstant = 0.12;
       src.connect(analyser);
 
       running = true;
@@ -535,6 +546,10 @@ const SILENCE_HOLD_MS = 120;       // כמה זמן שקט צריך להחזיק
     pitchWindow.length = 0;
     wrongStart = 0;
     wrongActive = false;
+
+    penaltyCooldownUntil = 0;
+    requireSilence = false;
+    silenceStart = 0;
   }
 
   function resetGame(){
@@ -551,6 +566,11 @@ const SILENCE_HOLD_MS = 120;       // כמה זמן שקט צריך להחזיק
 
     wrongStart = 0;
     wrongActive = false;
+
+    penaltyCooldownUntil = 0;
+    requireSilence = false;
+    silenceStart = 0;
+
     pitchWindow.length = 0;
 
     scoreEl.textContent = score;
@@ -629,7 +649,7 @@ const SILENCE_HOLD_MS = 120;       // כמה זמן שקט צריך להחזיק
   // ---------- Slide helpers ----------
   function computeSlideDist(){
     const centerX = cv.width / 2;
-    const farRight = cv.width + 120;
+    const farRight = cv.width + 150;
     return (farRight - centerX);
   }
 
@@ -646,17 +666,13 @@ const SILENCE_HOLD_MS = 120;       // כמה זמן שקט צריך להחזיק
   }
 
   // ---------- Stabilization helpers ----------
-  function pushPitchSample(freq, prob){
+  function pushPitchSample(freq, prob, rms){
     const now = performance.now();
-    pitchWindow.push({ t: now, f: freq, p: prob });
-    while (pitchWindow.length && (now - pitchWindow[0].t) > PITCH_WINDOW_MS) {
-      pitchWindow.shift();
-    }
+    pitchWindow.push({ t: now, f: freq, p: prob, r: rms });
+    while (pitchWindow.length && (now - pitchWindow[0].t) > PITCH_WINDOW_MS) pitchWindow.shift();
   }
 
-  function clearPitchWindow(){
-    pitchWindow.length = 0;
-  }
+  function clearPitchWindow(){ pitchWindow.length = 0; }
 
   function median(arr){
     if (!arr.length) return null;
@@ -672,21 +688,21 @@ const SILENCE_HOLD_MS = 120;       // כמה זמן שקט צריך להחזיק
     return median(cents);
   }
 
-  function getStablePitch(){
+  function getStablePitch(minMs, probMin, jitterMax){
     if (pitchWindow.length < 4) return null;
 
     const now = performance.now();
     const dur = now - pitchWindow[0].t;
-    if (dur < STABLE_MIN_MS) return null;
+    if (dur < minMs) return null;
 
     const probs = pitchWindow.map(s => s.p);
     const freqs = pitchWindow.map(s => s.f);
 
     const pMed = median(probs);
-    if (pMed == null || pMed < STABLE_PROB_MIN) return null;
+    if (pMed == null || pMed < probMin) return null;
 
     const madCents = medianAbsDevCents(freqs);
-    if (madCents > JITTER_CENTS_MAX) return null;
+    if (madCents > jitterMax) return null;
 
     const fMed = median(freqs);
     return { freq: fMed, prob: pMed, madCents };
@@ -705,45 +721,54 @@ const SILENCE_HOLD_MS = 120;       // כמה זמן שקט צריך להחזיק
   function loop(){
     analyser.getFloatTimeDomainData(buf);
     const res = detectPitchYIN(buf, audioCtx.sampleRate);
-
     const now = performance.now();
 
-// אם הענשנו (טעות/טיימאאוט) — לא מאפשרים ענישה נוספת עד שיש שקט קצר
-if (requireSilence) {
-  if (res.rms < SILENCE_RMS) {
-    if (!silenceStart) silenceStart = now;
-    if (now - silenceStart >= SILENCE_HOLD_MS) {
-      requireSilence = false;
-      silenceStart = 0;
+    // silence requirement to allow next penalty
+    if (requireSilence) {
+      if (res.rms < SILENCE_RMS) {
+        if (!silenceStart) silenceStart = now;
+        if (now - silenceStart >= SILENCE_HOLD_MS) {
+          requireSilence = false;
+          silenceStart = 0;
+        }
+      } else {
+        silenceStart = 0;
+      }
     }
-  } else {
-    silenceStart = 0;
-  }
-}
 
     if (!locked && !sliding) {
-      if (res.freq && res.prob >= 0.55) {
-        pushPitchSample(res.freq, res.prob);
-        const stable = getStablePitch();
+      // Always feed window if pitch-ish (for UI + logic)
+      if (res.freq && res.prob >= 0.50 && res.rms >= RMS_GATE) {
+        pushPitchSample(res.freq, res.prob, res.rms);
+
+        // UI: show quicker (shorter min)
+        const uiStable = getStablePitch(UI_MIN_MS, 0.66, 45);
+
+        // Logic: stricter stable pitch
+        const stable = getStablePitch(STABLE_MIN_MS, STABLE_PROB_MIN, JITTER_CENTS_MAX);
+
+        if (uiStable) {
+          let uiMidi = freqToMidi(uiStable.freq);
+          if (target) uiMidi = normalizeToTarget(uiMidi, target.midi);
+          const uiCents = centsOff(uiStable.freq, midiToFreq(uiMidi));
+          onPlayed(uiMidi, uiCents, uiStable.prob);
+        } else {
+          box.textContent = "";
+          box.className = "";
+        }
 
         if (stable) {
           let midi = freqToMidi(stable.freq);
-
           if (target) midi = normalizeToTarget(midi, target.midi);
-
           const cents = centsOff(stable.freq, midiToFreq(midi));
-
-          onPlayed(midi, cents, stable.prob);
-          check(midi, cents, stable.prob);
+          check(midi, cents, stable.prob, now);
         } else {
-          // לא יציב עדיין: לא מציגים כלום, ולא מאפסים את הטעות (כדי שגרייס יעבוד)
-          box.textContent = "";
-          box.className = "";
+          // do not reset wrong state here; prevents "never reaches grace"
           stableCount = 0;
           lastMidiSeen = null;
         }
       } else {
-        // אין צליל / חלש: כאן כן מאפסים הכל
+        // no usable sound: reset
         box.textContent = "";
         box.className = "";
         stableCount = 0;
@@ -760,8 +785,6 @@ if (requireSilence) {
 
   function onPlayed(midi, cents, prob){
     const samePC = target && samePitchClass(midi, target.midi);
-
-    // תצוגת השם תוך כדי נגינה: ירוק אם נכון, אדום אם שגוי
     const preferAcc = samePC && target ? target.accidental : null;
     const played = spellForMidi(midi, preferAcc);
 
@@ -776,9 +799,9 @@ if (requireSilence) {
     box.className = isCorrectNow ? "good" : "bad";
   }
 
-  function check(midi, cents, prob){
-    const now = performance.now();
-if (now < penaltyCooldownUntil || requireSilence) return;
+  function check(midi, cents, prob, now){
+    if (now < penaltyCooldownUntil || requireSilence) return;
+
     const samePC = target && samePitchClass(midi, target.midi);
 
     const ok =
@@ -800,17 +823,14 @@ if (now < penaltyCooldownUntil || requireSilence) return;
       return;
     }
 
-    // לא נכון:
     stableCount = 0;
 
-    // טעות נספרת לפי "מצב שגוי יציב", בלי תלות ב-MIDI קבוע
+    // Wrong candidate: relaxed compared to "ok" so we don't miss wrong notes
     const wrongCandidate =
-  target &&
-  !samePC &&
-  prob >= 0.70 &&          // פחות קשוח מה-STABLE_PROB_MIN כדי לא לפספס טעויות
-  Math.abs(cents) <= 220;  // נותן מרווח כשהפיץ' קצת רועד
-
-    const now = performance.now();
+      target &&
+      !samePC &&
+      prob >= 0.70 &&
+      Math.abs(cents) <= 240;
 
     if (wrongCandidate) {
       if (!wrongActive) {
@@ -819,7 +839,7 @@ if (now < penaltyCooldownUntil || requireSilence) return;
       } else if (now - wrongStart >= WRONG_GRACE_MS) {
         wrongActive = false;
         wrongStart = 0;
-        onWrong();
+        onWrong(now);
       }
     } else {
       wrongActive = false;
@@ -827,16 +847,18 @@ if (now < penaltyCooldownUntil || requireSilence) return;
     }
   }
 
-  function onWrong(){
+  function onWrong(now){
     locked = true;
     stopNoteTimer();
     clearPitchWindow();
-    penaltyCooldownUntil = performance.now() + PENALTY_COOLDOWN_MS;
-requireSilence = true;
-silenceStart = 0;
 
     wrongActive = false;
     wrongStart = 0;
+
+    // prevent repeated penalties on sustained sound
+    penaltyCooldownUntil = now + PENALTY_COOLDOWN_MS;
+    requireSilence = true;
+    silenceStart = 0;
 
     setTimeout(() => {
       stage.classList.remove("stageShake");
@@ -854,7 +876,7 @@ silenceStart = 0;
           resetNoteTimer();
         }
       }, 420);
-    }, 140);
+    }, 120);
   }
 
   function onCorrect(){
@@ -864,6 +886,10 @@ silenceStart = 0;
 
     wrongActive = false;
     wrongStart = 0;
+
+    // allow immediate next note without silence requirement
+    requireSilence = false;
+    silenceStart = 0;
 
     score++;
     answeredCount++;
@@ -877,7 +903,6 @@ silenceStart = 0;
     stableCount = 0;
     lastMidiSeen = null;
 
-    // להשאיר עוד 1.5 שניות ואז סלייד
     setTimeout(() => startSlideToNext(), 1500);
   }
 
@@ -886,11 +911,11 @@ silenceStart = 0;
 
     locked = true;
     clearPitchWindow();
-    penaltyCooldownUntil = performance.now() + PENALTY_COOLDOWN_MS;
-requireSilence = true;
-silenceStart = 0;
-    wrongActive = false;
-    wrongStart = 0;
+
+    const now = performance.now();
+    penaltyCooldownUntil = now + PENALTY_COOLDOWN_MS;
+    requireSilence = true;
+    silenceStart = 0;
 
     box.textContent = target.displayHeb;
     box.className = "neutral";
