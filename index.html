@@ -23,13 +23,7 @@
   --shadow: rgba(0,0,0,0.35);
 }
 
-body{
-  margin:0;
-  padding:18px;
-  font-family:system-ui, -apple-system, Arial;
-  background:var(--bg);
-  color:var(--text);
-}
+body{ margin:0; padding:18px; font-family:system-ui, -apple-system, Arial; background:var(--bg); color:var(--text); }
 
 button{
   width:100%;
@@ -50,12 +44,7 @@ button{
   align-items:center;
 }
 
-#leftHud{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  flex-wrap:wrap;
-}
+#leftHud{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
 .pill{
   padding:10px 12px;
@@ -64,34 +53,19 @@ button{
   color:var(--text);
   font-weight:900;
 }
-
-.pill small{
-  color:var(--muted);
-  font-weight:800;
-}
+.pill small{ color:var(--muted); font-weight:800; }
 
 #hearts{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  padding:10px 12px;
-  border-radius:12px;
-  background:var(--chip);
+  display:flex; gap:10px; align-items:center;
+  padding:10px 12px; border-radius:12px; background:var(--chip);
 }
-
 .heart{
-  font-family: "Press Start 2P", ui-monospace, Menlo, monospace;
-  font-size:18px;
-  line-height:1;
+  font-family:"Press Start 2P", ui-monospace, Menlo, monospace;
+  font-size:18px; line-height:1;
   color:#ff5a7a;
   text-shadow: 0 2px 0 var(--shadow);
-  transform: translateZ(0);
 }
-.heart.lost{
-  opacity:0;
-  transform: scale(0.6);
-  transition: opacity 180ms ease, transform 180ms ease;
-}
+.heart.lost{ opacity:0; transform:scale(0.6); transition: opacity 180ms ease, transform 180ms ease; }
 .heart.shake{ animation: heartShake 220ms ease-in-out; }
 @keyframes heartShake{
   0%{ transform: translateX(0) scale(1); }
@@ -102,33 +76,17 @@ button{
   100%{ transform: translateX(0) scale(1); }
 }
 
-#rightHud{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-}
-
+#rightHud{ display:flex; gap:10px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
 .toggle{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  padding:10px 12px;
-  border-radius:12px;
-  background:var(--chip);
-  color:var(--muted);
-  font-weight:900;
+  display:flex; align-items:center; gap:8px;
+  padding:10px 12px; border-radius:12px;
+  background:var(--chip); color:var(--muted); font-weight:900;
 }
-
 .toggle input{ transform: scale(1.15); }
 
 #timerPill{
-  padding:10px 12px;
-  border-radius:12px;
-  background:var(--chip);
-  color:var(--text);
-  font-weight:900;
+  padding:10px 12px; border-radius:12px;
+  background:var(--chip); color:var(--text); font-weight:900;
   display:none;
 }
 
@@ -140,7 +98,6 @@ button{
   border:1px solid rgba(255,255,255,0.10);
   position:relative;
 }
-
 canvas{ width:100%; height:auto; display:block; }
 
 #noteBox{
@@ -154,16 +111,9 @@ canvas{ width:100%; height:auto; display:block; }
   border-radius:14px;
   letter-spacing:0.2px;
 }
-
-.good{
-  color:var(--good);
-  animation:pulse 0.50s ease;
-  animation-delay:100ms;
-  animation-fill-mode:both;
-}
+.good{ color:var(--good); animation:pulse 0.50s ease; animation-delay:120ms; animation-fill-mode:both; }
 .bad{ color:var(--bad); }
 .neutral{ color:var(--muted); }
-
 @keyframes pulse{
   0%{ transform:scale(1); }
   40%{ transform:scale(1.14); }
@@ -183,53 +133,28 @@ canvas{ width:100%; height:auto; display:block; }
 
 /* Modal */
 #modalWrap{
-  position:fixed;
-  inset:0;
-  display:none;
-  place-items:center;
+  position:fixed; inset:0;
+  display:none; place-items:center;
   background: rgba(0,0,0,0.55);
-  z-index:9999;
-  padding:18px;
+  z-index:9999; padding:18px;
 }
-
 #modal{
   width:min(520px, 100%);
   border-radius:16px;
-  background: #141a31;
-  border: 1px solid rgba(255,255,255,0.14);
+  background:#141a31;
+  border:1px solid rgba(255,255,255,0.14);
   box-shadow: 0 18px 60px rgba(0,0,0,0.55);
   padding:16px;
 }
-
-#modal h2{
-  margin:0 0 10px 0;
-  font-size:22px;
-}
-
+#modal h2{ margin:0 0 10px 0; font-size:22px; }
 #modal .stats{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-  margin-bottom:14px;
+  display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:14px;
 }
-
 #modal .stat{
-  padding:12px;
-  border-radius:14px;
-  background: var(--chip);
-  font-weight:900;
+  padding:12px; border-radius:14px; background:var(--chip); font-weight:900;
 }
-#modal .stat small{
-  display:block;
-  color: var(--muted);
-  font-weight:800;
-  margin-bottom:6px;
-}
-
-#modal .row{
-  display:flex;
-  gap:10px;
-}
+#modal .stat small{ display:block; color:var(--muted); font-weight:800; margin-bottom:6px; }
+#modal .row{ display:flex; gap:10px; }
 #modal button{ font-size:18px; }
 #modal .secondary{ background: rgba(255,255,255,0.12); }
 </style>
@@ -285,7 +210,7 @@ canvas{ width:100%; height:auto; display:block; }
 
 <script>
 (() => {
-  // ---------- UI ----------
+  // -------- UI --------
   const btn = document.getElementById("btn");
   const stage = document.getElementById("stage");
   const cv = document.getElementById("cv");
@@ -295,11 +220,7 @@ canvas{ width:100%; height:auto; display:block; }
   const streakEl = document.getElementById("streak");
   const bestStreakEl = document.getElementById("bestStreak");
 
-  const hearts = [
-    document.getElementById("h1"),
-    document.getElementById("h2"),
-    document.getElementById("h3")
-  ];
+  const hearts = [document.getElementById("h1"),document.getElementById("h2"),document.getElementById("h3")];
 
   const timedModeEl = document.getElementById("timedMode");
   const timerPill = document.getElementById("timerPill");
@@ -313,15 +234,15 @@ canvas{ width:100%; height:auto; display:block; }
   const restartBtn = document.getElementById("restart");
   const closeModalBtn = document.getElementById("closeModal");
 
-  // show runtime errors on screen (mobile-friendly)
-  window.onerror = (msg, src, line, col) => {
-    box.textContent = `JS ERROR: line ${line}`;
+  // Show runtime errors in the box (mobile-friendly)
+  window.onerror = (msg, src, line) => {
+    box.textContent = `JS ERROR line ${line}`;
     box.className = "bad";
   };
 
   const css = (v)=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
-  // ---------- SCALE & STAFF ----------
+  // -------- Visual scale (keep your look) --------
   const SCALE = 2;
   const staffWidth = 210 * SCALE;
   const lineGap = 18 * SCALE;
@@ -332,7 +253,7 @@ canvas{ width:100%; height:auto; display:block; }
   function staffLeft(){ return (cv.width - staffWidth) / 2; }
   function staffRight(){ return staffLeft() + staffWidth; }
 
-  // ---------- Clef lock (from your calibration) ----------
+  // Your clef calibration (locked)
   const CLEF = {
     xOffset: 32 * SCALE,
     trebleY: -23 * SCALE,
@@ -345,39 +266,33 @@ canvas{ width:100%; height:auto; display:block; }
   function noteX(){ return staffLeft() + staffWidth * 0.66; }
   const ACC_X_OFFSET = 34 * SCALE;
 
-  // ---------- Audio / Pitch ----------
+  // -------- Pitch detection (YIN) --------
   const FFT = 2048;
   const buf = new Float32Array(FFT);
 
-  // gates
   const RMS_GATE = 0.010;
   const YIN_THRESHOLD = 0.10;
 
-  // FAST UI stability (short)
-  const UI_MIN_MS = 90;
+  // One simple stability layer (single source of truth)
+  const WIN_MS = 280;       // קצר -> תגובה מהירה
+  const PROB_MIN = 0.68;    // כדי לא לתפוס דיבור
+  const JITTER_MAX_CENTS = 28;
 
-  // stability / anti-speech (for gameplay decisions)
-  const STABLE_MIN_MS = 140;
-  const STABLE_PROB_MIN = 0.76;
-  const JITTER_CENTS_MAX = 22;
+  // Correct gating
+  const HIT_CENTS_MAX = 35;
+  const HIT_PROB_MIN = 0.82;
+  const HIT_HOLD_MS = 180;
 
-  // hit (correct)
-  const HIT_PROB_GATE  = 0.82;
-  const HIT_CENTS_MAX  = 35;
-  const REQUIRED_STABLE_FRAMES = 4;
+  // Wrong gating (punish reliably)
+  const WRONG_GRACE_MS = 220;
+  const WRONG_PROB_MIN = 0.68;
+  const WRONG_CENTS_MAX = 320;
 
-  // wrong grace (punish after holding WRONG state)
-  const WRONG_GRACE_MS = 260;
+  // Prevent multiple penalties on sustained wrong note
+  const PENALTY_COOLDOWN_MS = 500;
 
-  // stabilization window
-  const pitchWindow = []; // {t,f,p,rms}
-  const PITCH_WINDOW_MS = 380;
-
-  let audioCtx=null, analyser=null, stream=null, raf=null, running=false;
-
-  // ---------- Notes / spelling ----------
+  // -------- Notes / spelling --------
   const HEB = ["דו","רה","מי","פה","סול","לה","סי"];
-
   const PC_TO_SPELLINGS = {
     0:  [{L:0,a:0}],
     1:  [{L:0,a:+1},{L:1,a:-1}],
@@ -392,7 +307,6 @@ canvas{ width:100%; height:auto; display:block; }
     10: [{L:5,a:+1},{L:6,a:-1}],
     11: [{L:6,a:0}],
   };
-
   const accSymbol = (a)=> a===+1 ? "♯" : a===-1 ? "♭" : "";
 
   function spellForMidi(midi, preferredAcc=null){
@@ -421,50 +335,45 @@ canvas{ width:100%; height:auto; display:block; }
     return octave*7 + letterIndex;
   }
 
-  // ---------- Game target ----------
+  // -------- Game target --------
   const MIDI_MIN = 36; // C2
   const MIDI_MAX = 84; // C6
   let target = null;
 
-  // ---------- Game state ----------
-  let lives = 3;
-  let score = 0;
-  let streak = 0;
-  let bestStreak = 0;
-  let answeredCount = 0;
+  // -------- Game state --------
+  let running=false, audioCtx=null, analyser=null, stream=null, raf=null;
 
-  let stableCount = 0;
-  let lastMidiSeen = null;
-  let locked = false;
-  let sliding = false;
+  let lives=3, score=0, streak=0, bestStreak=0, answeredCount=0;
 
-  // WRONG state
+  let locked=false, sliding=false;
+
+  // detected stable note (single source)
+  const samples = []; // {t,f,p}
+  let detected = null; // {midi, freq, prob, centsToNearest}
+
+  // timers for holding correct/wrong
+  let correctStart = 0;
   let wrongStart = 0;
-  let wrongActive = false;
+  let wrongPC = null;
 
-  // cooldown + silence requirement (prevents multiple penalties on one sustained wrong note)
   let penaltyCooldownUntil = 0;
-  let requireSilence = false;
-  let silenceStart = 0;
 
-  const PENALTY_COOLDOWN_MS = 520;
-  const SILENCE_RMS = 0.008;
-  const SILENCE_HOLD_MS = 110;
-
-  // ---------- Timing mode ----------
+  // timing mode
   const NOTE_TIME_LIMIT_MS = 20000;
   let noteDeadline = 0;
   let timerTick = null;
 
-  // ---------- Slide animation ----------
-  let slideStart = 0;
+  // slide
+  let slideStart=0, slideDist=0;
   const slideDuration = 1400;
-  let slideDist = 0;
-  let oldTarget = null;
-  let newTarget = null;
+  let oldTarget=null, newTarget=null;
 
   function easeInOutCubic(t){
     return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
+  }
+
+  function setTimedUI(){
+    timerPill.style.display = timedModeEl.checked ? "block" : "none";
   }
 
   function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
@@ -477,29 +386,68 @@ canvas{ width:100%; height:auto; display:block; }
     return spellForMidi(midi, chosen.a);
   }
 
-  // ---------- Buttons / modal ----------
+  function stopNoteTimer(){
+    if (timerTick) { clearInterval(timerTick); timerTick=null; }
+  }
+  function resetNoteTimer(){
+    stopNoteTimer();
+    if (!timedModeEl.checked) return;
+    noteDeadline = performance.now() + NOTE_TIME_LIMIT_MS;
+    timerEl.textContent = "20.0";
+
+    timerTick = setInterval(() => {
+      if (!running || locked || sliding) return;
+      const msLeft = noteDeadline - performance.now();
+      const sLeft = Math.max(0, msLeft/1000);
+      timerEl.textContent = sLeft.toFixed(1);
+      if (msLeft <= 0) { stopNoteTimer(); onTimeout(); }
+    }, 100);
+  }
+
+  function loseLife(){
+    const idx = hearts.findIndex(h => !h.classList.contains("lost"));
+    if (idx === -1) return;
+    const h = hearts[idx];
+    h.classList.remove("shake");
+    void h.offsetWidth;
+    h.classList.add("shake");
+    setTimeout(()=>h.classList.add("lost"), 200);
+    lives--;
+    if (lives<=0) setTimeout(endGame, 260);
+  }
+
+  function endGame(){
+    locked = true;
+    sliding = false;
+    stopNoteTimer();
+
+    mScore.textContent = String(score);
+    mBest.textContent = String(bestStreak);
+    mTimed.textContent = timedModeEl.checked ? "פועל" : "כבוי";
+    mAnswered.textContent = String(answeredCount);
+    modalWrap.style.display = "grid";
+  }
+  function hideModal(){ modalWrap.style.display = "none"; }
+
   restartBtn.onclick = async () => {
     hideModal();
     if (!running) await start();
     else resetGame();
   };
-  closeModalBtn.onclick = () => hideModal();
+  closeModalBtn.onclick = hideModal;
+
+  timedModeEl.addEventListener("change", () => {
+    setTimedUI();
+    if (running && !locked && !sliding) resetNoteTimer();
+  });
 
   btn.onclick = async () => {
     if (running) { stop(); return; }
     await start();
   };
 
-  function setTimedUI(){
-    timerPill.style.display = timedModeEl.checked ? "block" : "none";
-  }
-  timedModeEl.addEventListener("change", () => {
-    setTimedUI();
-    if (running && !locked && !sliding) resetNoteTimer();
-  });
-
   async function start(){
-    try {
+    try{
       stream = await navigator.mediaDevices.getUserMedia({ audio:true });
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === "suspended") await audioCtx.resume();
@@ -512,11 +460,11 @@ canvas{ width:100%; height:auto; display:block; }
 
       running = true;
       btn.textContent = "⏹ עצור";
-
       setTimedUI();
+
       resetGame();
       loop();
-    } catch(e){
+    }catch(e){
       box.textContent = "שגיאת מיקרופון";
       box.className = "bad";
     }
@@ -526,348 +474,160 @@ canvas{ width:100%; height:auto; display:block; }
     running = false;
     btn.textContent = "🎤 התחל";
     if (raf) cancelAnimationFrame(raf);
-    raf = null;
+    raf=null;
 
     stopNoteTimer();
 
     if (stream) stream.getTracks().forEach(t=>t.stop());
-    stream = null;
+    stream=null;
 
     if (audioCtx) audioCtx.close();
-    audioCtx = null;
-    analyser = null;
+    audioCtx=null;
+    analyser=null;
 
-    box.textContent = "";
-    box.className = "";
+    box.textContent="";
+    box.className="";
 
-    locked = false;
-    sliding = false;
-
-    pitchWindow.length = 0;
-    wrongStart = 0;
-    wrongActive = false;
-
-    penaltyCooldownUntil = 0;
-    requireSilence = false;
-    silenceStart = 0;
+    samples.length=0;
+    detected=null;
   }
 
   function resetGame(){
-    lives = 3;
-    score = 0;
-    streak = 0;
-    bestStreak = 0;
-    answeredCount = 0;
+    lives=3; score=0; streak=0; bestStreak=0; answeredCount=0;
+    scoreEl.textContent="0";
+    streakEl.textContent="0";
+    bestStreakEl.textContent="0";
+    hearts.forEach(h=>h.classList.remove("lost","shake"));
 
-    stableCount = 0;
-    lastMidiSeen = null;
-    locked = false;
-    sliding = false;
+    locked=false; sliding=false;
+    samples.length=0;
+    detected=null;
 
-    wrongStart = 0;
-    wrongActive = false;
-
-    penaltyCooldownUntil = 0;
-    requireSilence = false;
-    silenceStart = 0;
-
-    pitchWindow.length = 0;
-
-    scoreEl.textContent = score;
-    streakEl.textContent = streak;
-    bestStreakEl.textContent = bestStreak;
-
-    hearts.forEach(h => h.classList.remove("lost","shake"));
+    correctStart=0;
+    wrongStart=0;
+    wrongPC=null;
+    penaltyCooldownUntil=0;
 
     target = randomTarget();
-    box.textContent = "";
-    box.className = "";
+    box.textContent="";
+    box.className="";
 
     resetNoteTimer();
     draw();
   }
 
-  // ---------- Timer per note ----------
-  function stopNoteTimer(){
-    if (timerTick) { clearInterval(timerTick); timerTick = null; }
-  }
-
-  function resetNoteTimer(){
-    stopNoteTimer();
-    if (!timedModeEl.checked) return;
-
-    noteDeadline = performance.now() + NOTE_TIME_LIMIT_MS;
-    timerEl.textContent = "20.0";
-
-    timerTick = setInterval(() => {
-      if (!running || locked || sliding) return;
-
-      const msLeft = noteDeadline - performance.now();
-      const sLeft = Math.max(0, msLeft / 1000);
-      timerEl.textContent = sLeft.toFixed(1);
-
-      if (msLeft <= 0) {
-        stopNoteTimer();
-        onTimeout();
-      }
-    }, 100);
-  }
-
-  // ---------- Lives / game over ----------
-  function loseLife(){
-    const idx = hearts.findIndex(h => !h.classList.contains("lost"));
-    if (idx === -1) return;
-
-    const h = hearts[idx];
-    h.classList.remove("shake");
-    void h.offsetWidth;
-    h.classList.add("shake");
-
-    setTimeout(() => h.classList.add("lost"), 200);
-
-    lives--;
-    if (lives <= 0) setTimeout(() => endGame(), 260);
-  }
-
-  function endGame(){
-    locked = true;
-    sliding = false;
-    stopNoteTimer();
-
-    mScore.textContent = String(score);
-    mBest.textContent = String(bestStreak);
-    mTimed.textContent = timedModeEl.checked ? "פועל" : "כבוי";
-    mAnswered.textContent = String(answeredCount);
-
-    modalWrap.style.display = "grid";
-  }
-
-  function hideModal(){
-    modalWrap.style.display = "none";
-  }
-
-  // ---------- Slide helpers ----------
-  function computeSlideDist(){
-    const centerX = cv.width / 2;
-    const farRight = cv.width + 150;
-    return (farRight - centerX);
-  }
-
-  function startSlideToNext(){
-    if (sliding) return;
-
-    sliding = true;
-    locked = true;
-
-    slideStart = performance.now();
-    oldTarget = target;
-    newTarget = randomTarget();
-    slideDist = computeSlideDist();
-  }
-
-  // ---------- Stabilization helpers ----------
-  function pushPitchSample(freq, prob, rms){
+  // -------- Stability from window (single truth) --------
+  function pushSample(freq, prob){
     const now = performance.now();
-    pitchWindow.push({ t: now, f: freq, p: prob, r: rms });
-    while (pitchWindow.length && (now - pitchWindow[0].t) > PITCH_WINDOW_MS) pitchWindow.shift();
+    samples.push({t:now,f:freq,p:prob});
+    while(samples.length && now - samples[0].t > WIN_MS) samples.shift();
   }
-
-  function clearPitchWindow(){ pitchWindow.length = 0; }
 
   function median(arr){
     if (!arr.length) return null;
-    const s = [...arr].sort((a,b)=>a-b);
-    const mid = Math.floor(s.length/2);
+    const s=[...arr].sort((a,b)=>a-b);
+    const mid=Math.floor(s.length/2);
     return s.length%2 ? s[mid] : (s[mid-1]+s[mid])/2;
   }
 
-  function medianAbsDevCents(freqs){
-    if (freqs.length < 3) return 999;
+  function jitterMADcents(freqs){
+    if (freqs.length<3) return 999;
     const m = median(freqs);
-    const cents = freqs.map(f => 1200*Math.log2(f/m)).map(x => Math.abs(x));
+    const cents = freqs.map(f=>Math.abs(1200*Math.log2(f/m)));
     return median(cents);
   }
 
-  function getStablePitch(minMs, probMin, jitterMax){
-    if (pitchWindow.length < 4) return null;
+  function computeDetected(){
+    if (samples.length < 4) return null;
+    const dur = samples[samples.length-1].t - samples[0].t;
+    if (dur < WIN_MS*0.60) return null;
 
-    const now = performance.now();
-    const dur = now - pitchWindow[0].t;
-    if (dur < minMs) return null;
-
-    const probs = pitchWindow.map(s => s.p);
-    const freqs = pitchWindow.map(s => s.f);
+    const probs = samples.map(s=>s.p);
+    const freqs = samples.map(s=>s.f);
 
     const pMed = median(probs);
-    if (pMed == null || pMed < probMin) return null;
+    if (pMed == null || pMed < PROB_MIN) return null;
 
-    const madCents = medianAbsDevCents(freqs);
-    if (madCents > jitterMax) return null;
+    const jit = jitterMADcents(freqs);
+    if (jit > JITTER_MAX_CENTS) return null;
 
     const fMed = median(freqs);
-    return { freq: fMed, prob: pMed, madCents };
+    const midi = freqToMidi(fMed);
+    const cents = centsOff(fMed, midiToFreq(midi));
+    return { midi, freq:fMed, prob:pMed, cents };
   }
 
-  // ---------- Harmonic / octave handling ----------
-  function normalizeToTarget(midi, targetMidi){
-    if (targetMidi == null) return midi;
-    let m = midi;
-    while (m - targetMidi > 6) m -= 12;
-    while (targetMidi - m > 6) m += 12;
-    return m;
-  }
-
-  // ---------- Main loop ----------
-  function loop(){
-  analyser.getFloatTimeDomainData(buf);
-  const res = detectPitchYIN(buf, audioCtx.sampleRate);
-  const now = performance.now();
-
-  // --- silence requirement to allow next penalty (prevents multiple penalties on sustained sound)
-  if (requireSilence) {
-    if (res.rms < SILENCE_RMS) {
-      if (!silenceStart) silenceStart = now;
-      if (now - silenceStart >= SILENCE_HOLD_MS) {
-        requireSilence = false;
-        silenceStart = 0;
-      }
-    } else {
-      silenceStart = 0;
-    }
-  }
-
-  if (!locked && !sliding) {
-
-    // Feed window only when there's usable sound
-    if (res.freq && res.prob >= 0.50 && res.rms >= RMS_GATE) {
-      pushPitchSample(res.freq, res.prob, res.rms);
-
-      // UI: quick/relaxed stability for display
-      const uiStable = getStablePitch(UI_MIN_MS, 0.66, 45);
-
-      // Logic: stricter stability (but we will fall back to uiStable so wrong gets punished)
-      const stable = getStablePitch(STABLE_MIN_MS, STABLE_PROB_MIN, JITTER_CENTS_MAX);
-
-      // 1) Display path (fast)
-      if (uiStable) {
-        let uiMidi = freqToMidi(uiStable.freq);
-        if (target) uiMidi = normalizeToTarget(uiMidi, target.midi);
-        const uiCents = centsOff(uiStable.freq, midiToFreq(uiMidi));
-        onPlayed(uiMidi, uiCents, uiStable.prob);
-      } else {
-        box.textContent = "";
-        box.className = "";
-      }
-
-      // 2) Game logic path: use stable if exists, otherwise uiStable
-      const decision = stable || uiStable;
-
-      if (decision) {
-        let midi = freqToMidi(decision.freq);
-        if (target) midi = normalizeToTarget(midi, target.midi);
-        const cents = centsOff(decision.freq, midiToFreq(midi));
-        check(midi, cents, decision.prob, now);
-      } else {
-        // not stable enough for decisions yet
-        stableCount = 0;
-        lastMidiSeen = null;
-        // IMPORTANT: don't reset wrongActive/wrongStart here (lets grace work)
-      }
-
-    } else {
-      // No usable sound: reset
-      box.textContent = "";
-      box.className = "";
-      stableCount = 0;
-      lastMidiSeen = null;
-
+  // -------- Core game evaluation (simple) --------
+  function evaluate(now){
+    // no detected => reset holds
+    if (!detected || locked || sliding) {
+      correctStart = 0;
       wrongStart = 0;
-      wrongActive = false;
-
-      clearPitchWindow();
-    }
-  }
-
-  draw();
-  raf = requestAnimationFrame(loop);
-}
-
-  function onPlayed(midi, cents, prob){
-    const samePC = target && samePitchClass(midi, target.midi);
-    const preferAcc = samePC && target ? target.accidental : null;
-    const played = spellForMidi(midi, preferAcc);
-
-    box.textContent = played.displayHeb;
-
-    const isCorrectNow =
-      target &&
-      samePC &&
-      Math.abs(cents) <= HIT_CENTS_MAX &&
-      prob >= HIT_PROB_GATE;
-
-    box.className = isCorrectNow ? "good" : "bad";
-  }
-
-  function check(midi, cents, prob, now){
-    if (now < penaltyCooldownUntil || requireSilence) return;
-
-    const samePC = target && samePitchClass(midi, target.midi);
-
-    const ok =
-      target &&
-      samePC &&
-      Math.abs(cents) <= HIT_CENTS_MAX &&
-      prob >= HIT_PROB_GATE;
-
-    if (ok) {
-      wrongActive = false;
-      wrongStart = 0;
-
-      if (lastMidiSeen === midi) stableCount++;
-      else stableCount = 1;
-
-      lastMidiSeen = midi;
-
-      if (stableCount >= REQUIRED_STABLE_FRAMES) onCorrect();
+      wrongPC = null;
       return;
     }
 
-    stableCount = 0;
+    // show played note always from detected.midi (true octave)
+    const samePC = target && samePitchClass(detected.midi, target.midi);
+    const preferAcc = samePC && target ? target.accidental : null;
+    const played = spellForMidi(detected.midi, preferAcc);
 
-    // Wrong candidate: relaxed compared to "ok" so we don't miss wrong notes
+    const isCorrect =
+      target &&
+      samePC &&
+      Math.abs(detected.cents) <= HIT_CENTS_MAX &&
+      detected.prob >= HIT_PROB_MIN;
+
+    box.textContent = played.displayHeb;
+    box.className = isCorrect ? "good" : "bad";
+
+    // correct hold -> accept
+    if (isCorrect) {
+      wrongStart = 0;
+      wrongPC = null;
+
+      if (!correctStart) correctStart = now;
+      if (now - correctStart >= HIT_HOLD_MS) {
+        onCorrect();
+      }
+      return;
+    }
+
+    correctStart = 0;
+
+    // wrong punish
+    if (now < penaltyCooldownUntil) return;
+
     const wrongCandidate =
       target &&
       !samePC &&
-      prob >= 0.70 &&
-      Math.abs(cents) <= 240;
+      detected.prob >= WRONG_PROB_MIN &&
+      Math.abs(detected.cents) <= WRONG_CENTS_MAX;
 
-    if (wrongCandidate) {
-      if (!wrongActive) {
-        wrongActive = true;
-        wrongStart = now;
-      } else if (now - wrongStart >= WRONG_GRACE_MS) {
-        wrongActive = false;
-        wrongStart = 0;
-        onWrong(now);
-      }
-    } else {
-      wrongActive = false;
+    if (!wrongCandidate) {
       wrongStart = 0;
+      wrongPC = null;
+      return;
+    }
+
+    const pc = mod12(detected.midi);
+    if (wrongPC === null || wrongPC !== pc) {
+      wrongPC = pc;
+      wrongStart = now;
+      return;
+    }
+
+    if (now - wrongStart >= WRONG_GRACE_MS) {
+      wrongStart = 0;
+      wrongPC = null;
+      penaltyCooldownUntil = now + PENALTY_COOLDOWN_MS;
+      onWrong();
     }
   }
 
-  function onWrong(now){
+  function onWrong(){
     locked = true;
     stopNoteTimer();
-    clearPitchWindow();
-
-    wrongActive = false;
-    wrongStart = 0;
-
-    // prevent repeated penalties on sustained sound
-    penaltyCooldownUntil = now + PENALTY_COOLDOWN_MS;
-    requireSilence = true;
-    silenceStart = 0;
 
     setTimeout(() => {
       stage.classList.remove("stageShake");
@@ -888,17 +648,26 @@ canvas{ width:100%; height:auto; display:block; }
     }, 120);
   }
 
+  function computeSlideDist(){
+    const centerX = cv.width / 2;
+    const farRight = cv.width + 150;
+    return farRight - centerX;
+  }
+
+  function startSlideToNext(){
+    if (sliding) return;
+    sliding = true;
+    locked = true;
+
+    slideStart = performance.now();
+    oldTarget = target;
+    newTarget = randomTarget();
+    slideDist = computeSlideDist();
+  }
+
   function onCorrect(){
     locked = true;
     stopNoteTimer();
-    clearPitchWindow();
-
-    wrongActive = false;
-    wrongStart = 0;
-
-    // allow immediate next note without silence requirement
-    requireSilence = false;
-    silenceStart = 0;
 
     score++;
     answeredCount++;
@@ -909,9 +678,7 @@ canvas{ width:100%; height:auto; display:block; }
     streakEl.textContent = String(streak);
     bestStreakEl.textContent = String(bestStreak);
 
-    stableCount = 0;
-    lastMidiSeen = null;
-
+    // show correct note for 1.5s then slide
     setTimeout(() => startSlideToNext(), 1500);
   }
 
@@ -919,12 +686,8 @@ canvas{ width:100%; height:auto; display:block; }
     if (!running || locked || sliding) return;
 
     locked = true;
-    clearPitchWindow();
-
-    const now = performance.now();
-    penaltyCooldownUntil = now + PENALTY_COOLDOWN_MS;
-    requireSilence = true;
-    silenceStart = 0;
+    samples.length=0;
+    detected=null;
 
     box.textContent = target.displayHeb;
     box.className = "neutral";
@@ -936,9 +699,8 @@ canvas{ width:100%; height:auto; display:block; }
     }, 3000);
   }
 
-  // ---------- Drawing ----------
+  // -------- Drawing --------
   function chooseClef(midi){ return midi < 60 ? "bass" : "treble"; }
-
   function draw(){
     ctx.clearRect(0,0,cv.width,cv.height);
 
@@ -967,6 +729,11 @@ canvas{ width:100%; height:auto; display:block; }
 
       box.textContent = "";
       box.className = "";
+
+      // reset hold states
+      correctStart = 0;
+      wrongStart = 0;
+      wrongPC = null;
 
       resetNoteTimer();
     }
@@ -1090,7 +857,7 @@ canvas{ width:100%; height:auto; display:block; }
     }
   }
 
-  // ---------- YIN ----------
+  // -------- YIN pitch --------
   function detectPitchYIN(signal, sampleRate){
     let mean = 0;
     for (let i=0; i<signal.length; i++) mean += signal[i];
@@ -1144,21 +911,40 @@ canvas{ width:100%; height:auto; display:block; }
     return { freq, prob, rms };
   }
 
-  // ---------- Helpers ----------
+  // -------- loop --------
+  function loop(){
+    analyser.getFloatTimeDomainData(buf);
+    const res = detectPitchYIN(buf, audioCtx.sampleRate);
+    const now = performance.now();
+
+    if (!locked && !sliding) {
+      if (res.freq && res.prob >= 0.50 && res.rms >= RMS_GATE) {
+        pushSample(res.freq, res.prob);
+        detected = computeDetected();
+      } else {
+        samples.length = 0;
+        detected = null;
+      }
+
+      evaluate(now);
+    }
+
+    draw();
+    raf = requestAnimationFrame(loop);
+  }
+
+  // -------- Helpers --------
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
   function freqToMidi(f){ return Math.round(69 + 12*Math.log2(f/440)); }
   function midiToFreq(m){ return 440 * Math.pow(2, (m-69)/12); }
   function centsOff(f, ref){ return 1200 * Math.log2(f/ref); }
 
-  function mod12(n){
-    return ((n % 12) + 12) % 12;
-  }
-  function samePitchClass(midi, targetMidi){
-    return mod12(midi - targetMidi) === 0;
-  }
+  function mod12(n){ return ((n % 12) + 12) % 12; }
+  function samePitchClass(midi, targetMidi){ return mod12(midi - targetMidi) === 0; }
 
   // init
   target = randomTarget();
+  setTimedUI();
   draw();
 
   window.addEventListener("pagehide", stop);
