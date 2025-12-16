@@ -371,6 +371,11 @@ canvas{ width:100%; height:auto; display:block; }
   const slideDuration = 1400;
   let oldTarget=null, newTarget=null;
 
+  // ---- candidate locking (prevents short-note cheating)
+let candMidi = null;
+let candStart = 0;
+let candData = null; // {midi,freq,prob,cents}
+
   function easeInOutCubic(t){
     return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
   }
@@ -919,25 +924,67 @@ canvas{ width:100%; height:auto; display:block; }
 
   // -------- loop --------
   function loop(){
-    analyser.getFloatTimeDomainData(buf);
-    const res = detectPitchYIN(buf, audioCtx.sampleRate);
-    const now = performance.now();
+  analyser.getFloatTimeDomainData(buf);
+  const res = detectPitchYIN(buf, audioCtx.sampleRate);
+  const now = performance.now();
 
-    if (!locked && !sliding) {
-      if (res.freq && res.prob >= 0.50 && res.rms >= RMS_GATE) {
-        pushSample(res.freq, res.prob);
-        detected = computeDetected();
+  if (!locked && !sliding) {
+    if (res.freq && res.prob >= 0.50 && res.rms >= RMS_GATE) {
+      pushSample(res.freq, res.prob);
+
+      // מחשבים "מועמד" בלי תלות בזמן החזקה
+      const candidate = computeDetected(); // מחזיר {midi,freq,prob,cents} או null
+
+      if (candidate) {
+        // אם עברנו למידי אחר -> מתחילים טיימר מחדש
+        if (candMidi === null || candidate.midi !== candMidi) {
+          candMidi = candidate.midi;
+          candStart = now;
+          candData = candidate;
+        } else {
+          // אותו midi - מעדכנים נתונים אבל לא מאפסים טיימר
+          candData = candidate;
+        }
+
+        // רק אחרי HOLD_MS: "ננעל" ומתחיל גם להופיע וגם להיספר
+        if (now - candStart >= HOLD_MS) {
+          detected = candData;
+        } else {
+          detected = null; // אין תצוגה ואין ספירה
+        }
+
       } else {
+        // אין מועמד יציב מספיק -> הכל מתאפס
         samples.length = 0;
         detected = null;
+        candMidi = null;
+        candStart = 0;
+        candData = null;
       }
 
-      evaluate(now);
+    } else {
+      // שקט/רעש חלש
+      samples.length = 0;
+      detected = null;
+      candMidi = null;
+      candStart = 0;
+      candData = null;
     }
 
-    draw();
-    raf = requestAnimationFrame(loop);
+    // בגלל ש-evaluate מציג שם רק אם detected קיים,
+    // זה יבטיח שאין "שם צליל" בלי שזה גם יכול להיספר
+    evaluate(now);
+
+    // אם אתה רוצה שהחלון יהיה ממש ריק כשהצליל עדיין קצר מדי:
+    if (!detected) {
+      box.textContent = "";
+      box.className = "";
+    }
   }
+
+  draw();
+  raf = requestAnimationFrame(loop);
+}
 
   // -------- Helpers --------
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
