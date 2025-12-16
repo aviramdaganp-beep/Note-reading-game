@@ -932,30 +932,27 @@ let candData = null; // {midi,freq,prob,cents}
     if (res.freq && res.prob >= 0.50 && res.rms >= RMS_GATE) {
       pushSample(res.freq, res.prob);
 
-      // מחשבים "מועמד" בלי תלות בזמן החזקה
-      const candidate = computeDetected(); // מחזיר {midi,freq,prob,cents} או null
+      const candidate = computeDetected(); // {midi,freq,prob,cents} או null
 
       if (candidate) {
-        // אם עברנו למידי אחר -> מתחילים טיימר מחדש
+        // אם עברנו ל-midi אחר -> מתחילים מדידת HOLD מחדש
         if (candMidi === null || candidate.midi !== candMidi) {
           candMidi = candidate.midi;
           candStart = now;
           candData = candidate;
         } else {
-          // אותו midi - מעדכנים נתונים אבל לא מאפסים טיימר
+          // אותו midi - מעדכנים נתונים
           candData = candidate;
         }
 
-        // רק אחרי HOLD_MS: "ננעל" ומתחיל גם להופיע וגם להיספר
+        // רק אחרי HOLD_MS - נועלים
         if (now - candStart >= HOLD_MS) {
           detected = candData;
         } else {
-          detected = null; // אין תצוגה ואין ספירה
+          detected = null; // עדיין לא מציג/סופר
         }
-
       } else {
-        // אין מועמד יציב מספיק -> הכל מתאפס
-        samples.length = 0;
+        // אין מועמד מספיק יציב עדיין — לא מאפסים samples!
         detected = null;
         candMidi = null;
         candStart = 0;
@@ -963,7 +960,7 @@ let candData = null; // {midi,freq,prob,cents}
       }
 
     } else {
-      // שקט/רעש חלש
+      // שקט/רעש חלש -> כאן כן מאפסים הכל
       samples.length = 0;
       detected = null;
       candMidi = null;
@@ -971,11 +968,9 @@ let candData = null; // {midi,freq,prob,cents}
       candData = null;
     }
 
-    // בגלל ש-evaluate מציג שם רק אם detected קיים,
-    // זה יבטיח שאין "שם צליל" בלי שזה גם יכול להיספר
     evaluate(now);
 
-    // אם אתה רוצה שהחלון יהיה ממש ריק כשהצליל עדיין קצר מדי:
+    // אם עדיין לא "ננעל" - לשמור חלון ריק
     if (!detected) {
       box.textContent = "";
       box.className = "";
