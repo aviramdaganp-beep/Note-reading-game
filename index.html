@@ -376,6 +376,8 @@ let candMidi = null;
 let candStart = 0;
 let candData = null; // {midi,freq,prob,cents}
 
+  let lastPenalizedMidi = null;
+
   function easeInOutCubic(t){
     return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
   }
