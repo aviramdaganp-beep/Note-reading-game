@@ -719,59 +719,78 @@ canvas{ width:100%; height:auto; display:block; }
 
   // ---------- Main loop ----------
   function loop(){
-    analyser.getFloatTimeDomainData(buf);
-    const res = detectPitchYIN(buf, audioCtx.sampleRate);
-    const now = performance.now();
+  analyser.getFloatTimeDomainData(buf);
+  const res = detectPitchYIN(buf, audioCtx.sampleRate);
+  const now = performance.now();
 
-    // silence requirement to allow next penalty
-    if (requireSilence) {
-      if (res.rms < SILENCE_RMS) {
-        if (!silenceStart) silenceStart = now;
-        if (now - silenceStart >= SILENCE_HOLD_MS) {
-          requireSilence = false;
-          silenceStart = 0;
-        }
-      } else {
+  // --- silence requirement to allow next penalty (prevents multiple penalties on sustained sound)
+  if (requireSilence) {
+    if (res.rms < SILENCE_RMS) {
+      if (!silenceStart) silenceStart = now;
+      if (now - silenceStart >= SILENCE_HOLD_MS) {
+        requireSilence = false;
         silenceStart = 0;
       }
+    } else {
+      silenceStart = 0;
     }
-
-    if (!locked && !sliding) {
-      // Always feed window if pitch-ish (for UI + logic)
-      if (res.freq && res.prob >= 0.50 && res.rms >= RMS_GATE) {
-        pushPitchSample(res.freq, res.prob, res.rms);
-
-        // UI: show quicker (shorter min)
-        const uiStable = getStablePitch(UI_MIN_MS, 0.66, 45);
-const stable   = getStablePitch(STABLE_MIN_MS, STABLE_PROB_MIN, JITTER_CENTS_MAX);
-
-// 1) תצוגה (מהיר)
-if (uiStable) {
-  let uiMidi = freqToMidi(uiStable.freq);
-  if (target) uiMidi = normalizeToTarget(uiMidi, target.midi);
-  const uiCents = centsOff(uiStable.freq, midiToFreq(uiMidi));
-  onPlayed(uiMidi, uiCents, uiStable.prob);
-} else {
-  box.textContent = "";
-  box.className = "";
-}
-
-// 2) לוגיקת משחק: אם אין stable, משתמשים ב-uiStable כדי שלא “נראה אדום בלי פסילה”
-const decision = stable || uiStable;
-
-if (decision) {
-  let midi = freqToMidi(decision.freq);
-  if (target) midi = normalizeToTarget(midi, target.midi);
-  const cents = centsOff(decision.freq, midiToFreq(midi));
-  check(midi, cents, decision.prob, now);
-} else {
-  stableCount = 0;
-  lastMidiSeen = null;
-}
-
-    draw();
-    raf = requestAnimationFrame(loop);
   }
+
+  if (!locked && !sliding) {
+
+    // Feed window only when there's usable sound
+    if (res.freq && res.prob >= 0.50 && res.rms >= RMS_GATE) {
+      pushPitchSample(res.freq, res.prob, res.rms);
+
+      // UI: quick/relaxed stability for display
+      const uiStable = getStablePitch(UI_MIN_MS, 0.66, 45);
+
+      // Logic: stricter stability (but we will fall back to uiStable so wrong gets punished)
+      const stable = getStablePitch(STABLE_MIN_MS, STABLE_PROB_MIN, JITTER_CENTS_MAX);
+
+      // 1) Display path (fast)
+      if (uiStable) {
+        let uiMidi = freqToMidi(uiStable.freq);
+        if (target) uiMidi = normalizeToTarget(uiMidi, target.midi);
+        const uiCents = centsOff(uiStable.freq, midiToFreq(uiMidi));
+        onPlayed(uiMidi, uiCents, uiStable.prob);
+      } else {
+        box.textContent = "";
+        box.className = "";
+      }
+
+      // 2) Game logic path: use stable if exists, otherwise uiStable
+      const decision = stable || uiStable;
+
+      if (decision) {
+        let midi = freqToMidi(decision.freq);
+        if (target) midi = normalizeToTarget(midi, target.midi);
+        const cents = centsOff(decision.freq, midiToFreq(midi));
+        check(midi, cents, decision.prob, now);
+      } else {
+        // not stable enough for decisions yet
+        stableCount = 0;
+        lastMidiSeen = null;
+        // IMPORTANT: don't reset wrongActive/wrongStart here (lets grace work)
+      }
+
+    } else {
+      // No usable sound: reset
+      box.textContent = "";
+      box.className = "";
+      stableCount = 0;
+      lastMidiSeen = null;
+
+      wrongStart = 0;
+      wrongActive = false;
+
+      clearPitchWindow();
+    }
+  }
+
+  draw();
+  raf = requestAnimationFrame(loop);
+}
 
   function onPlayed(midi, cents, prob){
     const samePC = target && samePitchClass(midi, target.midi);
