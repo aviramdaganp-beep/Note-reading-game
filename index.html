@@ -567,13 +567,47 @@ let candData = null; // {midi,freq,prob,cents}
 
   // -------- Core game evaluation (simple) --------
   function evaluate(now){
-  // no detected => reset holds
-  if (!detected || locked || sliding) {
-    correctStart = 0;
-    wrongStart = 0;
-    wrongPC = null;
+  if (!detected || locked || sliding) return;
+
+  // להציג תמיד רק כשהצליל כבר "נעול" (detected מגיע רק אחרי HOLD_MS)
+  const preferAcc = target ? target.accidental : null;
+  const played = spellForMidi(detected.midi, preferAcc);
+
+  const sameExact = target && (detected.midi === target.midi);
+
+  const isCorrect =
+    target &&
+    sameExact &&
+    Math.abs(detected.cents) <= HIT_CENTS_MAX &&
+    detected.prob >= HIT_PROB_MIN;
+
+  box.textContent = played.displayHeb;
+  box.className = isCorrect ? "good" : "bad";
+
+  // נכון -> מיד
+  if (isCorrect) {
+    onCorrect();
     return;
   }
+
+  // טעות -> מיד (אבל רק אם עומד בתנאי טעות)
+  if (now < penaltyCooldownUntil) return;
+
+  const wrongCandidate =
+    target &&
+    !sameExact &&
+    detected.prob >= WRONG_PROB_MIN &&
+    Math.abs(detected.cents) <= WRONG_CENTS_MAX;
+
+  if (!wrongCandidate) return;
+
+  // למנוע כמה פסילות ברצף על אותו צליל מוחזק
+  if (lastPenalizedMidi !== null && detected.midi === lastPenalizedMidi) return;
+
+  penaltyCooldownUntil = now + PENALTY_COOLDOWN_MS;
+  lastPenalizedMidi = detected.midi;
+  onWrong();
+}
 
   // --- Display played note (always from detected.midi, true octave)
   const preferAcc = target ? target.accidental : null;
